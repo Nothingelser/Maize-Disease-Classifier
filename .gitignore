@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data (usually too large for git)
+data/raw/
+data/processed/
+
+# Models (large binary files)
+models/*.pkl
+models/*.h5
+models/*.joblib
+
+# Reports/outputs (regeneratable)
+reports/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
