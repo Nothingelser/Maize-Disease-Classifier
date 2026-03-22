@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Report center</span>
+                    </div>
+                </a>
+
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/analytics">Analytics</a>
+                    <a class="header-link active" href="/reports">Reports</a>
+                    <a class="header-link" href="/dashboard" data-admin-link style="display: none;">Admin</a>
+                    <a class="header-link" href="/profile">Profile</a>
+                </nav>
+
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                    <button class="btn btn-secondary" id="logoutBtn" type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="hero">
+                <div class="hero-panel">
+                    <div class="eyebrow">
+                        <i class="fas fa-file-export"></i>
+                        Export-ready history
+                    </div>
+                    <h1>Prediction records organized for review and handoff.</h1>
+                    <p>
+                        Filter prediction history, inspect confidence details, and export selected records in the format that best fits your workflow.
+                    </p>
+                </div>
+                <aside class="hero-aside hero-panel">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Export targets</h3>
+                            <div class="section-copy">Use batch export for selected rows or single-report export from the detail modal.</div>
+                        </div>
+                    </div>
+                    <div class="info-list">
+                        <div class="info-item"><span>Single record</span><strong>PDF / CSV / JSON</strong></div>
+                        <div class="info-item"><span>Batch output</span><strong>CSV / Excel</strong></div>
+                        <div class="info-item"><span>Selection model</span><strong>manual checkbox set</strong></div>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="filter-card">
+                <div class="section-heading">
+                    <div>
+                        <h2>Filters</h2>
+                        <div class="section-copy">Refine the table before exporting or opening details.</div>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="dateRangeSelect">Date range</label>
+                        <select class="form-select" id="dateRangeSelect">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                            <option value="365">Last year</option>
+                            <option value="all">All time</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="diseaseFilter">Disease type</label>
+                        <select class="form-select" id="diseaseFilter">
+                            <option value="all">All diseases</option>
+                            <option value="Blight">Northern Leaf Blight</option>
+                            <option value="Gray Leaf Spot">Gray Leaf Spot</option>
+                            <option value="Healthy">Healthy</option>
+                            <option value="Maize Rust">Maize Rust</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="confidenceFilter">Confidence level</label>
+                        <select class="form-select" id="confidenceFilter">
+                            <option value="all">All</option>
+                            <option value="high">High (&gt;80%)</option>
+                            <option value="medium">Medium (50-80%)</option>
+                            <option value="low">Low (&lt;50%)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" id="applyFiltersBtn" type="button">
+                            <i class="fas fa-filter"></i>
+                            Apply filters
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="export-buttons" style="margin-bottom: 18px;">
+                <button class="btn-export btn-pdf" id="exportPDFBtn" type="button">
+                    <i class="fas fa-file-pdf"></i>
+                    Export PDF
+                </button>
+                <button class="btn-export btn-csv" id="exportCSVBtn" type="button">
+                    <i class="fas fa-file-csv"></i>
+                    Export CSV
+                </button>
+                <button class="btn-export btn-excel" id="exportExcelBtn" type="button">
+                    <i class="fas fa-file-excel"></i>
+                    Export Excel
+                </button>
+            </section>
+
+            <section class="predictions-table">
+                <div class="section-heading">
+                    <div>
+                        <h2>Prediction history</h2>
+                        <div class="section-copy">Review stored predictions, then export the subset you need.</div>
+                    </div>
+                    <div class="status-chip">
+                        <input type="checkbox" id="selectAllCheckbox" class="checkbox-select-all">
+                        <label for="selectAllCheckbox">Select all visible</label>
+                    </div>
+                </div>
+
+                <div id="loadingSpinner" class="loading-spinner">
+                    <div class="spinner-border"></div>
+                    <div class="loading-text">Loading predictions...</div>
+                </div>
+
+                <div id="tableContainer" class="table-shell">
+                    <table class="table" id="predictionsTable" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th width="30"><input type="checkbox" id="selectAllTable" class="checkbox-select-all"></th>
+                                <th>ID</th>
+                                <th>Image</th>
+                                <th>Prediction</th>
+                                <th>Confidence</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div>
+                        <div style="font-size: 3rem; margin-bottom: 12px;"><i class="fas fa-inbox"></i></div>
+                        <h3>No predictions found</h3>
+                        <p class="section-copy">Upload a leaf image from the main workspace to start building prediction history.</p>
+                        <a href="/" class="btn btn-primary" style="margin-top: 12px;">
+                            <i class="fas fa-upload"></i>
+                            Open detection workspace
+                        </a>
+                    </div>
+                </div>
+
+                <nav id="paginationNav" style="display: none;">
+                    <ul class="pagination" id="paginationList"></ul>
+                </nav>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div class="modal fade" id="predictionModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-chart-column"></i>
+                        Prediction details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="exportFromModal">
+                        <i class="fas fa-download"></i>
+                        Export report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-ui.js') }}"></script>
+    <script>
+        class ReportsManager {
+            constructor() {
+                this.token = localStorage.getItem('token');
+                this.currentPage = 1;
+                this.totalPages = 1;
+                this.selectedPredictions = new Set();
+                this.predictionModal = null;
+                this.currentFilters = {
+                    days: 30,
+                    disease: 'all',
+                    confidence: 'all'
+                };
+                this.init();
+            }
+
+            init() {
+                this.checkAuth();
+                this.initModal();
+                this.setupEventListeners();
+                this.loadPredictions();
+            }
+
+            initModal() {
+                const modalElement = document.getElementById('predictionModal');
+                if (modalElement) {
+                    this.predictionModal = new bootstrap.Modal(modalElement, {
+                        backdrop: true,
+                        keyboard: true
+                    });
+                }
+            }
+
+            checkAuth() {
+                if (!this.token) {
+                    window.location.href = '/login';
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
+                    this.currentFilters = {
+                        days: document.getElementById('dateRangeSelect').value,
+                        disease: document.getElementById('diseaseFilter').value,
+                        confidence: document.getElementById('confidenceFilter').value
+                    };
+                    this.currentPage = 1;
+                    this.loadPredictions();
+                });
+
+                const selectAll = document.getElementById('selectAllCheckbox');
+                const selectAllTable = document.getElementById('selectAllTable');
+
+                selectAll?.addEventListener('change', (e) => {
+                    this.toggleSelectAll(e.target.checked);
+                    if (selectAllTable) selectAllTable.checked = e.target.checked;
+                });
+
+                selectAllTable?.addEventListener('change', (e) => {
+                    this.toggleSelectAll(e.target.checked);
+                    if (selectAll) selectAll.checked = e.target.checked;
+                });
+
+                document.getElementById('exportPDFBtn')?.addEventListener('click', () => this.exportSelected('pdf'));
+                document.getElementById('exportCSVBtn')?.addEventListener('click', () => this.exportSelected('csv'));
+                document.getElementById('exportExcelBtn')?.addEventListener('click', () => this.exportSelected('excel'));
+
+                document.getElementById('logoutBtn')?.addEventListener('click', () => {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                });
+            }
+
+            async loadPredictions() {
+                this.showLoading(true);
+
+                try {
+                    const params = new URLSearchParams({
+                        page: this.currentPage,
+                        per_page: 20,
+                        days: this.currentFilters.days,
+                        disease: this.currentFilters.disease,
+                        confidence: this.currentFilters.confidence
+                    });
+
+                    const response = await fetch(`/api/predictions?${params}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to load predictions');
+                    }
+
+                    if (data.predictions && data.predictions.length > 0) {
+                        this.displayPredictions(data.predictions);
+                        this.totalPages = data.pages;
+                        this.updatePagination();
+                        document.getElementById('emptyState').style.display = 'none';
+                        document.getElementById('predictionsTable').style.display = 'table';
+                        document.getElementById('paginationNav').style.display = 'block';
+                    } else {
+                        document.getElementById('tableBody').innerHTML = '';
+                        document.getElementById('emptyState').style.display = 'grid';
+                        document.getElementById('predictionsTable').style.display = 'none';
+                        document.getElementById('paginationNav').style.display = 'none';
+                        this.updateSelectAllCheckbox();
+                    }
+                } catch (error) {
+                    console.error('Failed to load predictions:', error);
+                    this.showError(error.message || 'Failed to load predictions');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            displayPredictions(predictions) {
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+                this.selectedPredictions.clear();
+
+                predictions.forEach((pred) => {
+                    const row = tbody.insertRow();
+                    const badgeClass = this.getBadgeClass(pred.prediction);
+
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="prediction-checkbox" data-id="${pred.id}"></td>
+                        <td>#${pred.id}</td>
+                        <td>${this.truncate(pred.image_name, 30)}</td>
+                        <td><span class="badge-large ${badgeClass}">${pred.prediction}</span></td>
+                        <td>${(pred.confidence * 100).toFixed(1)}%</td>
+                        <td>${new Date(pred.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="reportsManager.viewDetails(${pred.id})" type="button">
+                                <i class="fas fa-eye"></i>
+                                View
+                            </button>
+                        </td>
+                    `;
+
+                    const checkbox = row.querySelector('.prediction-checkbox');
+                    checkbox.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            this.selectedPredictions.add(pred.id);
+                        } else {
+                            this.selectedPredictions.delete(pred.id);
+                        }
+                        this.updateSelectAllCheckbox();
+                    });
+                });
+            }
+
+            updatePagination() {
+                const paginationList = document.getElementById('paginationList');
+                paginationList.innerHTML = '';
+
+                const prevLi = document.createElement('li');
+                prevLi.className = `page-item ${this.currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#" onclick="reportsManager.goToPage(${this.currentPage - 1})">Prev</a>`;
+                paginationList.appendChild(prevLi);
+
+                const startPage = Math.max(1, this.currentPage - 2);
+                const endPage = Math.min(this.totalPages, this.currentPage + 2);
+
+                for (let i = startPage; i <= endPage; i += 1) {
+                    const li = document.createElement('li');
+                    li.className = `page-item ${i === this.currentPage ? 'active' : ''}`;
+                    li.innerHTML = `<a class="page-link" href="#" onclick="reportsManager.goToPage(${i})">${i}</a>`;
+                    paginationList.appendChild(li);
+                }
+
+                const nextLi = document.createElement('li');
+                nextLi.className = `page-item ${this.currentPage === this.totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#" onclick="reportsManager.goToPage(${this.currentPage + 1})">Next</a>`;
+                paginationList.appendChild(nextLi);
+            }
+
+            goToPage(page) {
+                if (page >= 1 && page <= this.totalPages) {
+                    this.currentPage = page;
+                    this.loadPredictions();
+                }
+            }
+
+            async viewDetails(predictionId) {
+                const trigger = document.activeElement;
+
+                try {
+                    if (trigger instanceof HTMLButtonElement) {
+                        trigger.disabled = true;
+                        trigger.dataset.loading = 'true';
+                        trigger.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Opening';
+                    }
+
+                    const response = await fetch(`/api/predictions/${predictionId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        const data = await response.json().catch(() => ({}));
+                        throw new Error(data.error || 'Failed to load prediction details');
+                    }
+
+                    const prediction = await response.json();
+                    this.showPredictionModal(prediction);
+                } catch (error) {
+                    console.error('Failed to load prediction details:', error);
+                    this.showError(error.message || 'Failed to load prediction details');
+                } finally {
+                    if (trigger instanceof HTMLButtonElement && trigger.dataset.loading === 'true') {
+                        trigger.disabled = false;
+                        trigger.innerHTML = '<i class="fas fa-eye"></i> View';
+                        delete trigger.dataset.loading;
+                    }
+                }
+            }
+
+            showPredictionModal(prediction) {
+                const modalBody = document.getElementById('modalBody');
+                const exportBtn = document.getElementById('exportFromModal');
+
+                let probabilitiesHtml = '<div class="metadata-placeholder">No probabilities available.</div>';
+                if (prediction.probabilities && prediction.probabilities.length) {
+                    probabilitiesHtml = prediction.probabilities.map((prob) => {
+                        const percentage = (prob.probability * 100).toFixed(1);
+                        return `
+                            <div class="probability-item">
+                                <div class="probability-label">
+                                    <span><strong>${prob.class}</strong></span>
+                                    <span>${percentage}%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: ${percentage}%; background: ${prob.color}"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                modalBody.innerHTML = `
+                    <div class="prediction-modal-layout">
+                        <section class="prediction-modal-summary">
+                            <div class="prediction-modal-summary-head">
+                                <span class="eyebrow">
+                                    <i class="fas fa-microscope"></i>
+                                    Prediction details
+                                </span>
+                                <span class="badge-large ${this.getBadgeClass(prediction.prediction)}">${prediction.prediction}</span>
+                            </div>
+                            <div class="prediction-modal-score">
+                                <div>
+                                    <div class="metric-title">Top confidence</div>
+                                    <div class="metric-value">${(prediction.confidence * 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="prediction-modal-score-bar">
+                                    <div class="progress">
+                                        <div class="progress-bar" style="width: ${prediction.confidence * 100}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="prediction-modal-meta-grid">
+                                <div class="info-item"><span>Filename</span><strong>${prediction.image_name}</strong></div>
+                                <div class="info-item"><span>Prediction ID</span><strong>#${prediction.id}</strong></div>
+                                <div class="info-item"><span>Date</span><strong>${new Date(prediction.created_at).toLocaleString()}</strong></div>
+                                <div class="info-item"><span>Processing time</span><strong>${prediction.processing_time?.toFixed(0) || 'N/A'} ms</strong></div>
+                            </div>
+                        </section>
+                        <section class="prediction-modal-card">
+                            <div class="section-heading">
+                                <div>
+                                    <h4>Class probabilities</h4>
+                                    <div class="section-copy">Relative confidence across all model outputs.</div>
+                                </div>
+                            </div>
+                            <div class="probability-list">${probabilitiesHtml}</div>
+                        </section>
+                        <section class="prediction-modal-card">
+                            <div class="section-heading">
+                                <div>
+                                    <h4>Recommendation</h4>
+                                    <div class="section-copy">Suggested next step based on the current prediction.</div>
+                                </div>
+                            </div>
+                            <div class="recommendation-card prediction-modal-recommendation">${this.getRecommendation(prediction.prediction)}</div>
+                        </section>
+                    </div>
+                `;
+
+                exportBtn.onclick = () => this.exportSinglePrediction(prediction.id, 'pdf');
+
+                this.predictionModal?.show();
+            }
+
+            async exportSinglePrediction(predictionId, format) {
+                const exportBtn = document.getElementById('exportFromModal');
+                const originalHtml = exportBtn?.innerHTML;
+
+                try {
+                    if (exportBtn) {
+                        exportBtn.disabled = true;
+                        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting';
+                    }
+
+                    const response = await fetch(`/api/export/${predictionId}?format=${format}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        const data = await response.json().catch(() => ({}));
+                        throw new Error(data.error || 'Export failed');
+                    }
+
+                    const blob = await response.blob();
+                    const filename = this.getDownloadFilename(response, `prediction_${predictionId}.${format}`);
+                    this.downloadBlob(blob, filename);
+                    this.showSuccess('Prediction report exported');
+                } catch (error) {
+                    console.error('Single export failed:', error);
+                    this.showError(error.message || 'Export failed');
+                } finally {
+                    if (exportBtn) {
+                        exportBtn.disabled = false;
+                        exportBtn.innerHTML = originalHtml || '<i class="fas fa-download"></i> Export report';
+                    }
+                }
+            }
+
+            async exportSelected(format) {
+                const predictionIds = Array.from(this.selectedPredictions);
+
+                if (predictionIds.length === 0) {
+                    alert('Please select at least one prediction to export');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/export/batch', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.token}`
+                        },
+                        body: JSON.stringify({
+                            prediction_ids: predictionIds,
+                            format
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const data = await response.json().catch(() => ({}));
+                        throw new Error(data.error || 'Export failed');
+                    }
+
+                    const blob = await response.blob();
+                    const fallbackName = format === 'excel'
+                        ? 'predictions_export.xlsx'
+                        : format === 'pdf'
+                            ? 'predictions_export_pdf_bundle.zip'
+                            : `predictions_export.${format}`;
+                    this.downloadBlob(blob, this.getDownloadFilename(response, fallbackName));
+
+                    this.showSuccess(`Exported ${predictionIds.length} predictions`);
+                } catch (error) {
+                    console.error('Export failed:', error);
+                    this.showError(error.message || 'Export failed');
+                }
+            }
+
+            getDownloadFilename(response, fallback) {
+                const contentDisposition = response.headers.get('Content-Disposition') || '';
+                const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+                return match ? match[1] : fallback;
+            }
+
+            downloadBlob(blob, filename) {
+                const url = window.URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                window.URL.revokeObjectURL(url);
+            }
+
+            toggleSelectAll(checked) {
+                const checkboxes = document.querySelectorAll('.prediction-checkbox');
+                checkboxes.forEach((cb) => {
+                    cb.checked = checked;
+                    const id = parseInt(cb.dataset.id, 10);
+                    if (checked) {
+                        this.selectedPredictions.add(id);
+                    } else {
+                        this.selectedPredictions.delete(id);
+                    }
+                });
+            }
+
+            updateSelectAllCheckbox() {
+                const selectAll = document.getElementById('selectAllCheckbox');
+                const selectAllTable = document.getElementById('selectAllTable');
+                const checkboxes = document.querySelectorAll('.prediction-checkbox');
+                const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every((cb) => cb.checked);
+
+                if (selectAll) selectAll.checked = allChecked;
+                if (selectAllTable) selectAllTable.checked = allChecked;
+            }
+
+            getBadgeClass(prediction) {
+                const classes = {
+                    'Blight': 'badge-blight',
+                    'Gray Leaf Spot': 'badge-gray-leaf-spot',
+                    'Healthy': 'badge-healthy',
+                    'Maize Rust': 'badge-maize-rust'
+                };
+                return classes[prediction] || 'badge-healthy';
+            }
+
+            getRecommendation(disease) {
+                const recommendations = {
+                    'Blight': 'Apply fungicides containing azoxystrobin or pyraclostrobin. Remove infected leaves and practice crop rotation.',
+                    'Gray Leaf Spot': 'Apply strobilurin fungicides at first sign. Maintain balanced soil fertility and improve field sanitation.',
+                    'Healthy': 'Continue current agronomic practice and keep monitoring the field for early-stage disease indicators.',
+                    'Maize Rust': 'Use resistant varieties where possible and treat severe outbreaks before spread accelerates.'
+                };
+                return recommendations[disease] || 'Consult a local agricultural expert for treatment options.';
+            }
+
+            truncate(str, length) {
+                if (str.length <= length) return str;
+                return `${str.substring(0, length)}...`;
+            }
+
+            showLoading(show) {
+                const spinner = document.getElementById('loadingSpinner');
+                if (spinner) spinner.style.display = show ? 'flex' : 'none';
+                if (!show) document.getElementById('tableContainer').style.display = 'block';
+            }
+
+            showError(message) {
+                alert(message);
+            }
+
+            showSuccess(message) {
+                alert(message);
+            }
+        }
+
+        let reportsManager;
+        document.addEventListener('DOMContentLoaded', () => {
+            reportsManager = new ReportsManager();
+            window.reportsManager = reportsManager;
+        });
+    </script>
+</body>
+</html>

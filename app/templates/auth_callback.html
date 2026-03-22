@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Authentication callback</span>
+                    </div>
+                </a>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="premium-card" style="max-width: 760px; margin: 0 auto; text-align: center;">
+                <h1 class="page-title">Completing authentication...</h1>
+                <p class="page-subtitle" id="authStatus">Please wait while we process your secure link.</p>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        function parseHashParams() {
+            const hash = (window.location.hash || '').replace(/^#/, '');
+            return new URLSearchParams(hash);
+        }
+
+        function parseQueryParams() {
+            return new URLSearchParams(window.location.search);
+        }
+
+        function redirectTo(url) {
+            window.location.replace(url);
+        }
+
+        (function handleAuthCallback() {
+            const status = document.getElementById('authStatus');
+            const hashParams = parseHashParams();
+            const queryParams = parseQueryParams();
+
+            const accessToken = hashParams.get('access_token') || '';
+            const refreshToken = hashParams.get('refresh_token') || '';
+            const type = hashParams.get('type') || queryParams.get('flow') || '';
+
+            if (!accessToken && type !== 'confirm') {
+                status.textContent = 'This link is invalid or expired. Please request a new one.';
+                setTimeout(() => redirectTo('/login'), 1400);
+                return;
+            }
+
+            if (type === 'recovery') {
+                sessionStorage.setItem('password_reset_access_token', accessToken);
+                if (refreshToken) {
+                    sessionStorage.setItem('password_reset_refresh_token', refreshToken);
+                }
+                status.textContent = 'Recovery link verified. Redirecting you to set a new password...';
+                setTimeout(() => redirectTo('/reset-password'), 500);
+                return;
+            }
+
+            status.textContent = 'Email confirmed. Redirecting to sign in...';
+            setTimeout(() => redirectTo('/login?confirmed=1'), 500);
+        })();
+    </script>
+</body>
+</html>

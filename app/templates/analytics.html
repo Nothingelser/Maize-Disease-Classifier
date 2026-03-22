@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-shell">
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <div class="loading-text">Loading analytics...</div>
+            </div>
+        </div>
+
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Analytics workspace</span>
+                    </div>
+                </a>
+
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link active" href="/analytics">Analytics</a>
+                    <a class="header-link" href="/reports">Reports</a>
+                    <a class="header-link" href="/dashboard" data-admin-link style="display: none;">Admin</a>
+                    <a class="header-link" href="/profile">Profile</a>
+                </nav>
+
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                    <button class="btn btn-secondary" id="logoutBtn" type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="hero">
+                <div class="hero-panel">
+                    <div class="eyebrow">
+                        <i class="fas fa-chart-line"></i>
+                        Trend intelligence
+                    </div>
+                    <h1>Prediction analytics with a cleaner operational story.</h1>
+                    <p>
+                        Review disease distribution, confidence behavior, and usage volume in a layout that surfaces signal first.
+                    </p>
+                </div>
+
+                <aside class="hero-aside hero-panel">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Time horizon</h3>
+                            <div class="section-copy">Switch the reporting window without leaving the page.</div>
+                        </div>
+                    </div>
+                    <div class="period-selector">
+                        <button class="period-btn" data-period="day">Day</button>
+                        <button class="period-btn active" data-period="week">Week</button>
+                        <button class="period-btn" data-period="month">Month</button>
+                        <button class="period-btn" data-period="year">Year</button>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-row">
+                        <div class="stat-icon"><i class="fas fa-chart-simple"></i></div>
+                        <div>
+                            <div class="stat-title">Total predictions</div>
+                            <div class="stat-value" id="totalPredictions">0</div>
+                        </div>
+                    </div>
+                    <div id="predictionsTrend" class="stat-meta">0% this period</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-row">
+                        <div class="stat-icon"><i class="fas fa-percent"></i></div>
+                        <div>
+                            <div class="stat-title">Average confidence</div>
+                            <div class="stat-value" id="avgConfidence">0%</div>
+                        </div>
+                    </div>
+                    <div id="confidenceTrend" class="stat-meta">Confidence trend placeholder</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-row">
+                        <div class="stat-icon"><i class="fas fa-virus"></i></div>
+                        <div>
+                            <div class="stat-title">Most common disease</div>
+                            <div class="stat-value" id="mostCommonDisease">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-meta">Most frequently detected class.</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-row">
+                        <div class="stat-icon"><i class="fas fa-calendar"></i></div>
+                        <div>
+                            <div class="stat-title">Daily average</div>
+                            <div class="stat-value" id="dailyAvg">0</div>
+                        </div>
+                    </div>
+                    <div id="dailyAvgTrend" class="stat-meta">Volume change placeholder</div>
+                </div>
+            </section>
+
+            <section class="chart-grid" style="margin-top: 20px;">
+                <div class="chart-box">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Disease distribution</h3>
+                            <div class="section-copy">Class mix across the selected period.</div>
+                        </div>
+                    </div>
+                    <canvas id="diseaseChart" height="260"></canvas>
+                </div>
+
+                <div class="chart-box">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Confidence trend</h3>
+                            <div class="section-copy">Confidence behavior over time.</div>
+                        </div>
+                    </div>
+                    <canvas id="confidenceTrendChart" height="260"></canvas>
+                </div>
+            </section>
+
+            <section class="chart-grid" style="grid-template-columns: 1.3fr 0.7fr; margin-top: 20px;">
+                <div class="chart-box">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Daily predictions</h3>
+                            <div class="section-copy">Per-day activity in the active reporting window.</div>
+                        </div>
+                    </div>
+                    <canvas id="dailyPredictionsChart" height="260"></canvas>
+                </div>
+
+                <div class="chart-box">
+                    <div class="section-heading">
+                        <div>
+                            <h3>AI insights</h3>
+                            <div class="section-copy">Generated highlights based on the current analytics response.</div>
+                        </div>
+                    </div>
+                    <div id="insightsContainer" class="stack">
+                        <div class="insight-card">
+                            <strong>Loading insights...</strong>
+                            <div class="section-copy" style="margin-top: 6px;">Please wait while the dashboard evaluates the latest analytics response.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-ui.js') }}"></script>
+    <script>
+        class AnalyticsDashboard {
+            constructor() {
+                this.token = localStorage.getItem('token');
+                this.currentPeriod = 'week';
+                this.charts = {};
+                this.init();
+            }
+
+            init() {
+                this.checkAuth();
+                this.setupEventListeners();
+                this.loadData();
+            }
+
+            checkAuth() {
+                if (!this.token) {
+                    window.location.href = '/login';
+                }
+            }
+
+            setupEventListeners() {
+                document.querySelectorAll('.period-btn').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.period-btn').forEach((item) => item.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.currentPeriod = btn.dataset.period;
+                        this.loadData();
+                    });
+                });
+
+                document.getElementById('logoutBtn')?.addEventListener('click', () => {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                });
+            }
+
+            async loadData() {
+                this.showLoading(true);
+
+                try {
+                    const response = await fetch(`/api/analytics?period=${this.currentPeriod}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    const data = await response.json();
+                    this.updateUI(data);
+                    this.updateCharts(data);
+                    this.updateInsights(data);
+                } catch (error) {
+                    console.error('Failed to load analytics:', error);
+                    this.showError('Failed to load analytics data');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            updateUI(data) {
+                document.getElementById('totalPredictions').textContent = data.total_predictions || 0;
+                document.getElementById('avgConfidence').textContent =
+                    data.average_confidence ? `${(data.average_confidence * 100).toFixed(1)}%` : '0%';
+                document.getElementById('mostCommonDisease').textContent = data.most_common_disease || 'N/A';
+                document.getElementById('dailyAvg').textContent =
+                    data.total_predictions ? (data.total_predictions / 7).toFixed(1) : '0';
+                this.updateTrends(data);
+            }
+
+            updateTrends(data) {
+                const predictionsTrend = document.getElementById('predictionsTrend');
+                const change = data.percentage_change || 0;
+                if (predictionsTrend) {
+                    predictionsTrend.textContent = `${change.toFixed(1)}% this period`;
+                }
+
+                const confidenceTrend = document.getElementById('confidenceTrend');
+                if (confidenceTrend) {
+                    confidenceTrend.textContent = data.average_confidence
+                        ? `Average confidence currently ${(data.average_confidence * 100).toFixed(1)}%`
+                        : 'No confidence trend available yet';
+                }
+
+                const dailyTrend = document.getElementById('dailyAvgTrend');
+                if (dailyTrend) {
+                    dailyTrend.textContent = data.total_predictions
+                        ? `Based on ${data.total_predictions} predictions in this period`
+                        : 'No daily volume recorded yet';
+                }
+            }
+
+            updateCharts(data) {
+                if (data.disease_distribution) {
+                    const ctx = document.getElementById('diseaseChart').getContext('2d');
+                    const diseases = Object.keys(data.disease_distribution);
+                    const counts = Object.values(data.disease_distribution);
+                    const colors = ['#8d332a', '#c9962a', '#2f6b42', '#215f62'];
+
+                    if (this.charts.disease) this.charts.disease.destroy();
+                    this.charts.disease = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: diseases,
+                            datasets: [{
+                                data: counts,
+                                backgroundColor: colors.slice(0, diseases.length),
+                                borderWidth: 0
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                legend: { position: 'bottom' }
+                            }
+                        }
+                    });
+                }
+
+                const confidenceCtx = document.getElementById('confidenceTrendChart').getContext('2d');
+                if (this.charts.confidence) this.charts.confidence.destroy();
+                this.charts.confidence = new Chart(confidenceCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Confidence (%)',
+                            data: [85, 87, 89, 90, 91, 92],
+                            borderColor: '#2f6b42',
+                            backgroundColor: 'rgba(47, 107, 66, 0.12)',
+                            tension: 0.35,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+
+                const dailyCtx = document.getElementById('dailyPredictionsChart').getContext('2d');
+                const series = data.daily_predictions && data.daily_predictions.length > 0
+                    ? {
+                        labels: data.daily_predictions.map((item) => item.date),
+                        values: data.daily_predictions.map((item) => item.count)
+                    }
+                    : {
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        values: [0, 0, 0, 0, 0, 0, 0]
+                    };
+
+                if (this.charts.daily) this.charts.daily.destroy();
+                this.charts.daily = new Chart(dailyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: series.labels,
+                        datasets: [{
+                            label: 'Predictions',
+                            data: series.values,
+                            backgroundColor: '#b88645',
+                            borderRadius: 999
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            updateInsights(data) {
+                const container = document.getElementById('insightsContainer');
+                if (!container) return;
+
+                const insights = this.generateInsights(data);
+                container.innerHTML = insights.map((insight) => `
+                    <div class="insight-card">
+                        <strong>${insight.title}</strong>
+                        <div class="section-copy" style="margin-top: 6px;">${insight.description}</div>
+                    </div>
+                `).join('');
+            }
+
+            generateInsights(data) {
+                const insights = [];
+
+                if (data.most_common_disease) {
+                    insights.push({
+                        title: 'Most prevalent disease',
+                        description: `${data.most_common_disease} is the dominant class in the selected period.`
+                    });
+                }
+
+                if (data.average_confidence) {
+                    insights.push({
+                        title: 'Confidence snapshot',
+                        description: `Average confidence is ${(data.average_confidence * 100).toFixed(1)}%, which is useful for comparing image quality and model stability over time.`
+                    });
+                }
+
+                insights.push({
+                    title: 'Operational guidance',
+                    description: 'Use the reports page to export the current prediction history when you need to share evidence outside the app.'
+                });
+
+                return insights;
+            }
+
+            showLoading(show) {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.style.display = show ? 'flex' : 'none';
+            }
+
+            showError(message) {
+                alert(message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.analytics = new AnalyticsDashboard();
+        });
+    </script>
+</body>
+</html>

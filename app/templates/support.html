@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Support and feedback</span>
+                    </div>
+                </a>
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/analytics">Analytics</a>
+                    <a class="header-link" href="/reports">Reports</a>
+                    <a class="header-link active" href="/support">Support</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="premium-card">
+                <h1 class="page-title">Support</h1>
+                <p class="page-subtitle">Need help or want to share product feedback? Send us details and we will review it.</p>
+            </section>
+
+            <section class="support-grid">
+                <aside class="premium-card">
+                    <div class="section-heading">
+                        <div>
+                            <h2>Contact and help</h2>
+                            <div class="section-copy">Use this channel for issues, feature requests, and general questions.</div>
+                        </div>
+                    </div>
+                    <div class="info-list">
+                        <div class="info-item"><span>Response target</span><strong>Within 2 business days</strong></div>
+                        <div class="info-item"><span>Scope</span><strong>Account, predictions, exports, analytics</strong></div>
+                        <div class="info-item"><span>Security concerns</span><strong>Please include reproduction steps</strong></div>
+                    </div>
+                </aside>
+
+                <div class="premium-card">
+                    <div class="section-heading">
+                        <div>
+                            <h2>Customer feedback</h2>
+                            <div class="section-copy">Your feedback helps prioritize improvements.</div>
+                        </div>
+                    </div>
+                    <form class="auth-form" id="feedbackForm">
+                        <div class="field">
+                            <label for="name">Name (optional)</label>
+                            <input id="name" name="name" type="text">
+                        </div>
+                        <div class="field">
+                            <label for="email">Email (optional)</label>
+                            <input id="email" name="email" type="email">
+                        </div>
+                        <div class="field">
+                            <label for="category">Category</label>
+                            <select id="category" name="category" class="form-select">
+                                <option value="General">General</option>
+                                <option value="Bug report">Bug report</option>
+                                <option value="Feature request">Feature request</option>
+                                <option value="Security concern">Security concern</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" rows="5" required></textarea>
+                        </div>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-paper-plane"></i>
+                            Submit feedback
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+
+        <div class="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-ui.js') }}"></script>
+    <script>
+        const feedbackForm = document.getElementById('feedbackForm');
+        const toastContainer = document.querySelector('.toast-container');
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 220);
+            }, 3000);
+        }
+
+        feedbackForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const token = localStorage.getItem('token');
+            const payload = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                category: document.getElementById('category').value,
+                message: document.getElementById('message').value.trim()
+            };
+
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showToast(data.error || 'Feedback submission failed', 'error');
+                    return;
+                }
+
+                showToast(data.message || 'Feedback submitted');
+                feedbackForm.reset();
+            } catch (error) {
+                showToast(`Feedback submission failed: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

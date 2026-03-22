@@ -6,7 +6,6 @@ import numpy as np
 import joblib
 from data_preprocessing import MaizeLeafPreprocessor
 
-
 def predict_single_image(image_path, model_path, classes=None):
     """
     Predict disease for a single maize leaf image
@@ -30,7 +29,7 @@ def predict_single_image(image_path, model_path, classes=None):
     img = preprocessor._load_and_preprocess_image(image_path)
     
     if img is None:
-        print("❌ Failed to load image")
+        print("âŒ Failed to load image")
         return None
     
     # Extract features
@@ -45,18 +44,17 @@ def predict_single_image(image_path, model_path, classes=None):
     
     # Display results
     print("\n" + "="*50)
-    print("🌽 PREDICTION RESULTS")
+    print("ðŸŒ½ PREDICTION RESULTS")
     print("="*50)
-    print(f"📌 Predicted Disease: {predicted_class}")
-    print("\n📊 Class Probabilities:")
+    print(f"ðŸ“Œ Predicted Disease: {predicted_class}")
+    print("\nðŸ“Š Class Probabilities:")
     for i, prob in enumerate(probabilities):
         percentage = prob * 100
-        bar = "█" * int(percentage/5) + "░" * (20 - int(percentage/5))
+        bar = "â–ˆ" * int(percentage/5) + "â–‘" * (20 - int(percentage/5))
         print(f"  {classes[i]:15s}: {bar} {percentage:.1f}%")
     print("="*50)
     
     return predicted_class, probabilities
-
 
 if __name__ == "__main__":
     # Example usage

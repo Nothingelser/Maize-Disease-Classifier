@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Account access</span>
+                    </div>
+                </a>
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/register">Register</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="auth-shell">
+                <div class="auth-showcase surface-panel">
+                    <div class="eyebrow"><i class="fas fa-shield-heart"></i> Secure workspace</div>
+                    <h1 class="page-title" style="color: white;">Sign in to save predictions and unlock analytics.</h1>
+                    <p>
+                        Your account enables persistent prediction history, exports, profile management, and access to the analytics and reports workspaces.
+                    </p>
+                    <div class="info-list" style="margin-top: 28px;">
+                        <div class="info-item"><span>Prediction history</span><strong>Stored per account</strong></div>
+                        <div class="info-item"><span>Reports and exports</span><strong>CSV, Excel, PDF</strong></div>
+                        <div class="info-item"><span>Analytics access</span><strong>User and admin views</strong></div>
+                    </div>
+                </div>
+
+                <div class="premium-card auth-card">
+                    <div class="section-heading">
+                        <div>
+                            <h2>Sign in</h2>
+                            <div class="section-copy">Use your username and password to continue.</div>
+                        </div>
+                    </div>
+
+                    <form class="auth-form" id="loginForm">
+                        <div class="field">
+                            <label for="username">Username</label>
+                            <input id="username" name="username" type="text" required>
+                        </div>
+                        <div class="field">
+                            <label for="password">Password</label>
+                            <div class="password-field">
+                                <input id="password" name="password" type="password" required>
+                                <button class="password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-right-to-bracket"></i>
+                            Sign in
+                        </button>
+                    </form>
+
+                    <p class="auth-footer">
+                        Forgot your password? <a href="/forgot-password"><strong>Reset it</strong></a>.<br>
+                        Need an account? <a href="/register"><strong>Create one here</strong></a>.
+                    </p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+
+        <div class="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script>
+        const loginParams = new URLSearchParams(window.location.search);
+        const toastContainer = document.querySelector('.toast-container');
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 220);
+            }, 2800);
+        }
+
+        if (loginParams.get('confirmed') === '1') {
+            showToast('Email confirmed. You can now sign in.');
+        }
+
+        document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const input = document.getElementById(button.dataset.passwordToggle);
+                const icon = button.querySelector('i');
+                const showing = input.type === 'text';
+
+                input.type = showing ? 'password' : 'text';
+                button.setAttribute('aria-pressed', String(!showing));
+                button.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+                icon.className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+            });
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                username: document.getElementById('username').value.trim(),
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showToast(data.error || 'Sign in failed', 'error');
+                    return;
+                }
+
+                localStorage.setItem('token', data.token);
+                if (data.refresh_token) {
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                } else {
+                    localStorage.removeItem('refresh_token');
+                }
+                localStorage.setItem('user', JSON.stringify(data.user));
+                showToast('Signed in successfully');
+                window.location.href = '/';
+            } catch (error) {
+                showToast(`Sign in failed: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

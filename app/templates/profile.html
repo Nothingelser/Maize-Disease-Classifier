@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Profile and preferences</span>
+                    </div>
+                </a>
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/analytics">Analytics</a>
+                    <a class="header-link" href="/reports">Reports</a>
+                    <a class="header-link active" href="/profile">Profile</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                    <button class="btn btn-secondary" id="logoutBtn" type="button">
+                        <i class="fas fa-right-from-bracket"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="premium-card">
+                <div class="section-heading">
+                    <div>
+                        <h1 class="page-title">Profile</h1>
+                        <div class="page-subtitle">Manage your account details and keep your workspace identity current.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="profile-grid">
+                <aside class="profile-sidebar">
+                    <div class="premium-card">
+                        <div class="profile-avatar"><i class="fas fa-user"></i></div>
+                        <h3 id="profileDisplayName" style="margin: 18px 0 6px;">Loading...</h3>
+                        <p class="section-copy" id="profileMeta">Fetching user details</p>
+                    </div>
+
+                    <div class="premium-card">
+                        <div class="info-list">
+                            <div class="info-item"><span>Saved predictions</span><strong id="profilePredictionCount">0</strong></div>
+                            <div class="info-item"><span>Account role</span><strong id="profileRole">User</strong></div>
+                            <div class="info-item"><span>Joined</span><strong id="profileJoined">-</strong></div>
+                        </div>
+                    </div>
+                </aside>
+
+                <div class="premium-card">
+                    <div class="section-heading">
+                        <div>
+                            <h2>Update account</h2>
+                            <div class="section-copy">Change your visible identity details. Password reset is available from the sign-in page.</div>
+                        </div>
+                    </div>
+
+                    <form class="auth-form" id="profileForm">
+                        <div class="field">
+                            <label for="full_name">Full name</label>
+                            <input id="full_name" name="full_name" type="text">
+                        </div>
+                        <div class="field">
+                            <label for="username">Username</label>
+                            <input id="username" name="username" type="text" required>
+                        </div>
+                        <div class="field">
+                            <label for="email">Email</label>
+                            <input id="email" name="email" type="email" required>
+                        </div>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-floppy-disk"></i>
+                            Save changes
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+
+        <div class="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        const toastContainer = document.querySelector('.toast-container');
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 220);
+            }, 2800);
+        }
+
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        async function loadProfile() {
+            try {
+                const response = await fetch('/api/user/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showToast(data.error || 'Unable to load profile', 'error');
+                    return;
+                }
+
+                document.getElementById('full_name').value = data.full_name || '';
+                document.getElementById('username').value = data.username || '';
+                document.getElementById('email').value = data.email || '';
+                document.getElementById('profileDisplayName').textContent = data.full_name || data.username;
+                document.getElementById('profileMeta').textContent = data.email;
+                document.getElementById('profilePredictionCount').textContent = data.predictions_count || 0;
+                document.getElementById('profileRole').textContent = data.is_admin ? 'Admin' : 'User';
+                document.getElementById('profileJoined').textContent = data.created_at ? new Date(data.created_at).toLocaleDateString() : '-';
+                localStorage.setItem('user', JSON.stringify(data));
+            } catch (error) {
+                showToast(`Unable to load profile: ${error.message}`, 'error');
+            }
+        }
+
+        document.getElementById('profileForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                full_name: document.getElementById('full_name').value.trim(),
+                username: document.getElementById('username').value.trim(),
+                email: document.getElementById('email').value.trim()
+            };
+
+            try {
+                const response = await fetch('/api/user/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showToast(data.error || 'Profile update failed', 'error');
+                    return;
+                }
+
+                showToast('Profile updated successfully');
+                await loadProfile();
+            } catch (error) {
+                showToast(`Profile update failed: ${error.message}`, 'error');
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        });
+
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html>

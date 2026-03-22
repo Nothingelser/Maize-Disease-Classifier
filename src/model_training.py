@@ -1,11 +1,13 @@
 """
-Module for training Random Forest classifier
+Model training module for Random Forest classifier
 """
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 import joblib
 import numpy as np
+import logging
 
+logger = logging.getLogger(__name__)
 
 class MaizeDiseaseClassifier:
     """
@@ -28,6 +30,7 @@ class MaizeDiseaseClassifier:
             n_jobs=-1  # Use all available CPU cores
         )
         self.classes = None
+        self.feature_importances_ = None
     
     def train(self, X_train, y_train):
         """
@@ -37,14 +40,18 @@ class MaizeDiseaseClassifier:
             X_train: training features
             y_train: training labels
         """
-        print("Training Random Forest Classifier...")
-        print(f"Number of trees: {self.model.n_estimators}")
+        logger.info("Training Random Forest Classifier...")
+        logger.info(f"Number of trees: {self.model.n_estimators}")
+        logger.info(f"Training samples: {X_train.shape[0]}")
+        logger.info(f"Features: {X_train.shape[1]}")
         
         self.model.fit(X_train, y_train)
         self.classes = self.model.classes_
+        self.feature_importances_ = self.model.feature_importances_
         
-        print("✅ Training completed!")
-        print(f"Training accuracy: {self.model.score(X_train, y_train):.4f}")
+        train_score = self.model.score(X_train, y_train)
+        logger.info(f"âœ… Training completed!")
+        logger.info(f"Training accuracy: {train_score:.4f}")
     
     def optimize_hyperparameters(self, X_train, y_train):
         """
@@ -53,8 +60,11 @@ class MaizeDiseaseClassifier:
         Args:
             X_train: training features
             y_train: training labels
+            
+        Returns:
+            best_params: dictionary of best hyperparameters
         """
-        print("Optimizing hyperparameters...")
+        logger.info("Optimizing hyperparameters...")
         
         # Define parameters to try
         param_grid = {
@@ -77,14 +87,15 @@ class MaizeDiseaseClassifier:
         # Run grid search
         grid_search.fit(X_train, y_train)
         
-        print(f"\n✅ Best parameters found:")
+        logger.info(f"\nâœ… Best parameters found:")
         for param, value in grid_search.best_params_.items():
-            print(f"  {param}: {value}")
-        print(f"Best cross-validation accuracy: {grid_search.best_score_:.4f}")
+            logger.info(f"  {param}: {value}")
+        logger.info(f"Best cross-validation accuracy: {grid_search.best_score_:.4f}")
         
         # Use the best model
         self.model = grid_search.best_estimator_
         self.classes = self.model.classes_
+        self.feature_importances_ = self.model.feature_importances_
         
         return grid_search.best_params_
     
@@ -112,6 +123,27 @@ class MaizeDiseaseClassifier:
         """
         return self.model.predict_proba(X)
     
+    def get_feature_importance(self, feature_names=None):
+        """
+        Get feature importance scores
+        
+        Args:
+            feature_names: list of feature names (optional)
+            
+        Returns:
+            sorted list of (feature_name, importance) tuples
+        """
+        if self.feature_importances_ is None:
+            return None
+        
+        importances = self.feature_importances_
+        indices = np.argsort(importances)[::-1]
+        
+        if feature_names:
+            return [(feature_names[i], importances[i]) for i in indices]
+        else:
+            return [(f"Feature_{i}", importances[i]) for i in indices]
+    
     def save_model(self, filepath):
         """
         Save trained model to disk
@@ -120,7 +152,7 @@ class MaizeDiseaseClassifier:
             filepath: path where to save the model
         """
         joblib.dump(self.model, filepath)
-        print(f"✅ Model saved to {filepath}")
+        logger.info(f"âœ… Model saved to {filepath}")
     
     def load_model(self, filepath):
         """
@@ -131,4 +163,5 @@ class MaizeDiseaseClassifier:
         """
         self.model = joblib.load(filepath)
         self.classes = self.model.classes_
-        print(f"✅ Model loaded from {filepath}")
+        self.feature_importances_ = self.model.feature_importances_
+        logger.info(f"âœ… Model loaded from {filepath}")

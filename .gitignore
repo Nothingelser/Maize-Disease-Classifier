@@ -1,34 +1,70 @@
-# Virtual environment
-venv/
-.env
-
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
 .Python
+venv/
+env/
+ENV/
+.venv
 
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
+# Environment variables
+.env
+.env.local
+.env.production
 
-# Data (usually too large for git)
-data/raw/
-data/processed/
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# Models (large binary files)
+# Logs
+logs/
+*.log
+
+# Models
 models/*.pkl
 models/*.h5
 models/*.joblib
 
-# Reports/outputs (regeneratable)
+# Uploads
+data/uploads/*
+!data/uploads/.gitkeep
+data/raw/
+
+# Runtime and reports
+instance/
 reports/
+__pycache__/
+app/**/__pycache__/
+src/**/__pycache__/
+config/**/__pycache__/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Docker
+.env.docker

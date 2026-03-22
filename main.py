@@ -6,13 +6,12 @@ from src.data_preprocessing import MaizeLeafPreprocessor
 from src.model_training import MaizeDiseaseClassifier
 from src.evaluation import ModelEvaluator
 
-
 def main():
     """
     Main execution function
     """
     print("\n" + "="*60)
-    print("🌽 MAIZE DISEASE CLASSIFICATION PROJECT")
+    print("ðŸŒ½ MAIZE DISEASE CLASSIFICATION PROJECT")
     print("="*60 + "\n")
     
     # Configuration
@@ -22,7 +21,7 @@ def main():
     
     # Check if data path exists
     if not os.path.exists(DATA_PATH):
-        print(f"❌ ERROR: Data path not found: {DATA_PATH}")
+        print(f"âŒ ERROR: Data path not found: {DATA_PATH}")
         print("\nPlease update the DATA_PATH in main.py to point to your dataset.")
         print("Common locations:")
         print("  - Downloads folder: C:/Users/YOURNAME/Downloads/PlantVillage")
@@ -31,7 +30,7 @@ def main():
     
     # Step 1: Preprocess data
     print("\n" + "-"*40)
-    print("📁 STEP 1: Data Preprocessing")
+    print("ðŸ“ STEP 1: Data Preprocessing")
     print("-"*40)
     
     preprocessor = MaizeLeafPreprocessor(img_size=IMG_SIZE)
@@ -39,7 +38,7 @@ def main():
     
     # Step 2: Train model
     print("\n" + "-"*40)
-    print("🤖 STEP 2: Model Training")
+    print("ðŸ¤– STEP 2: Model Training")
     print("-"*40)
     
     classifier = MaizeDiseaseClassifier(n_estimators=100)
@@ -58,7 +57,7 @@ def main():
     
     # Step 3: Evaluate model
     print("\n" + "-"*40)
-    print("📊 STEP 3: Model Evaluation")
+    print("ðŸ“Š STEP 3: Model Evaluation")
     print("-"*40)
     
     evaluator = ModelEvaluator(classifier, data['classes'])
@@ -74,14 +73,13 @@ def main():
     )
     
     print("\n" + "="*60)
-    print("✅ PROJECT COMPLETED SUCCESSFULLY!")
+    print("âœ… PROJECT COMPLETED SUCCESSFULLY!")
     print("="*60)
     print("\nResults saved in:")
     print("  - Trained model: models/maize_disease_classifier.pkl")
     print("  - Confusion matrix: reports/confusion_matrix.png")
     if 'feature_importance' in results:
         print("  - Feature importance: reports/feature_importance.png")
-
 
 if __name__ == "__main__":
     main()

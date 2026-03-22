@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">About the platform</span>
+                    </div>
+                </a>
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/analytics">Analytics</a>
+                    <a class="header-link" href="/reports">Reports</a>
+                    <a class="header-link" href="/support">Support</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell legal-content">
+            <section class="premium-card">
+                <h1 class="page-title">About MaizeGuard AI</h1>
+                <p class="page-subtitle">MaizeGuard AI helps agronomy teams screen maize leaf images for common disease classes and track outcomes over time.</p>
+            </section>
+
+            <section class="premium-card">
+                <h2>What the system does</h2>
+                <p>Uploads are processed by a trained classification model and saved as prediction records for analytics, reporting, and follow-up workflows.</p>
+            </section>
+
+            <section class="premium-card">
+                <h2>Who it is for</h2>
+                <p>This platform is designed for students, researchers, agronomists, and field operators who need quick disease screening support from image evidence.</p>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-ui.js') }}"></script>
+</body>
+</html>

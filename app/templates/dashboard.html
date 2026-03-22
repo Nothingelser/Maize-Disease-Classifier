@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | MaizeGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="brand" href="/">
+                    <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+                    <div class="brand-copy">
+                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-subtitle">Administrative view</span>
+                    </div>
+                </a>
+
+                <nav class="header-nav">
+                    <a class="header-link" href="/">Detection</a>
+                    <a class="header-link" href="/analytics">Analytics</a>
+                    <a class="header-link" href="/reports">Reports</a>
+                    <a class="header-link" href="/support">Support</a>
+                    <a class="header-link active" href="/dashboard" data-admin-link style="display: none;">Admin</a>
+                    <a class="header-link" href="/profile">Profile</a>
+                </nav>
+
+                <div class="header-actions">
+                    <button class="dark-mode-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i></button>
+                    <div class="status-chip">
+                        <span class="status-dot"></span>
+                        System healthy
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page-shell">
+            <section class="premium-card">
+                <div class="dashboard-header">
+                    <div>
+                        <div class="dashboard-kicker">Operations</div>
+                        <h1 class="page-title">System dashboard</h1>
+                        <p class="page-subtitle">A clean operational snapshot for platform usage, throughput, and error activity.</p>
+                    </div>
+                    <div class="dashboard-actions">
+                        <a class="btn btn-secondary" href="/reports">
+                            <i class="fas fa-file-lines"></i>
+                            View reports
+                        </a>
+                        <a class="btn btn-primary" href="/analytics">
+                            <i class="fas fa-chart-line"></i>
+                            Open analytics
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dashboard-container">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-row">
+                            <div class="stat-icon"><i class="fas fa-users"></i></div>
+                            <div>
+                                <div class="stat-title">Total users</div>
+                                <div class="stat-value" id="totalUsers">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-meta">Registered users available in the system database.</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-row">
+                            <div class="stat-icon"><i class="fas fa-images"></i></div>
+                            <div>
+                                <div class="stat-title">Predictions</div>
+                                <div class="stat-value" id="totalPredictions">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-meta">Total predictions stored by the service.</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-row">
+                            <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                            <div>
+                                <div class="stat-title">Daily average</div>
+                                <div class="stat-value" id="dailyAvg">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-meta">Average volume based on system analytics.</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-row">
+                            <div class="stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                            <div>
+                                <div class="stat-title">Errors, last 7 days</div>
+                                <div class="stat-value" id="errorsCount">0</div>
+                            </div>
+                        </div>
+                        <div class="stat-meta">Recent error logs tracked through the backend.</div>
+                    </div>
+                </div>
+
+                <div class="chart-grid">
+                    <div class="chart-box">
+                        <div class="section-heading">
+                            <div>
+                                <h3>Platform notes</h3>
+                                <div class="section-copy">Suggested operational reading of the current environment.</div>
+                            </div>
+                        </div>
+                        <div class="info-list">
+                            <div class="info-item"><span>Deployment posture</span><strong>Single app workspace</strong></div>
+                            <div class="info-item"><span>Logging target</span><strong>Application + error files</strong></div>
+                            <div class="info-item"><span>Refresh cadence</span><strong>30 seconds</strong></div>
+                            <div class="info-item"><span>Data source</span><strong>System analytics endpoint</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="chart-box">
+                        <div class="section-heading">
+                            <div>
+                                <h3>Next actions</h3>
+                                <div class="section-copy">A simple operator checklist to keep the app healthy.</div>
+                            </div>
+                        </div>
+                        <ul class="recommendation-list">
+                            <li>Verify authenticated access before relying on admin-only metrics.</li>
+                            <li>Check the reports page for export behavior after large prediction batches.</li>
+                            <li>Confirm the production model artifact exists at the configured model path.</li>
+                            <li>Monitor error count trends before enabling stricter rate limiting.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="feedback-admin-card premium-card">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Support inbox</h3>
+                            <div class="section-copy">Customer feedback and support requests submitted from the support page.</div>
+                        </div>
+                        <div class="feedback-admin-controls">
+                            <select id="feedbackStatus" class="form-select">
+                                <option value="all">All</option>
+                                <option value="new">New</option>
+                                <option value="replied">Replied</option>
+                            </select>
+                            <button class="btn btn-secondary" id="refreshFeedback" type="button">
+                                <i class="fas fa-rotate"></i>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="feedback-table-wrap">
+                        <table class="table feedback-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Category</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Message</th>
+                                    <th>Created</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feedbackBody">
+                                <tr>
+                                    <td colspan="7" class="feedback-empty">No feedback loaded yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-links">
+                    <a href="/about">About</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/support">Support</a>
+                </div>
+            </div>
+        </footer>
+
+        <div class="feedback-reply-modal" id="feedbackReplyModal" hidden>
+            <div class="feedback-reply-panel premium-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>Reply to feedback</h3>
+                        <div class="section-copy" id="replyFeedbackMeta">Feedback details</div>
+                    </div>
+                    <button class="btn btn-secondary" id="closeReplyModal" type="button">Close</button>
+                </div>
+                <div class="field">
+                    <label for="replyMessage">Response</label>
+                    <textarea id="replyMessage" rows="6" placeholder="Write your support response..."></textarea>
+                </div>
+                <div class="feedback-reply-actions">
+                    <button class="btn btn-primary" id="sendReplyBtn" type="button">
+                        <i class="fas fa-paper-plane"></i>
+                        Send reply
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dark-mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth-ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
