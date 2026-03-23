@@ -1,0 +1,12 @@
+# Large local-only assets and development artifacts
+data/raw/
+notebooks/
+reports/
+venv/
+__pycache__/
+.pytest_cache/
+.git/
+logs/
+*.db
+*.sqlite3
+instance/

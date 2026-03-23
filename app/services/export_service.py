@@ -9,12 +9,17 @@ from html import escape
 from typing import Iterable, List
 
 import pandas as pd
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
 class ExportService:
     """Service for exporting prediction records in several formats."""
@@ -59,6 +64,9 @@ class ExportService:
 
     def generate_pdf(self, prediction):
         """Generate a PDF report for a single prediction."""
+        if not HAS_REPORTLAB:
+            raise RuntimeError("PDF export is unavailable because reportlab is not installed")
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         story = []

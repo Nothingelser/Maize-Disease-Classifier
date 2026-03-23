@@ -1,5 +1,5 @@
 # ============================================
-# Maize Disease Classifier - Production Requirements
+# Production Requirements (Vercel/Lambda compatible)
 # ============================================
 
 # Core Flask Framework

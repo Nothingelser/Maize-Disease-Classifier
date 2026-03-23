@@ -58,7 +58,29 @@ def require_supabase():
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-prediction_service = PredictionService()
+_prediction_service = None
+_prediction_service_error = None
+
+
+def get_prediction_service():
+    """Lazily initialize prediction service so app startup does not fail."""
+    global _prediction_service, _prediction_service_error
+
+    if _prediction_service is not None:
+        return _prediction_service
+
+    if _prediction_service_error is not None:
+        return None
+
+    try:
+        _prediction_service = PredictionService()
+        return _prediction_service
+    except Exception as exc:
+        _prediction_service_error = str(exc)
+        logger.exception("Prediction service initialization failed")
+        return None
+
+
 analytics_service = AnalyticsService()
 export_service = ExportService()
 
@@ -92,7 +114,10 @@ def health_check():
 @api_bp.route('/model/info', methods=['GET'])
 def get_model_info():
     """Return the deployed model metadata."""
-    return jsonify(prediction_service.get_model_info()), 200
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+    return jsonify(service.get_model_info()), 200
 
 @api_bp.route('/login', methods=['POST'])
 def login():
@@ -187,6 +212,10 @@ def register():
 @request_logger
 def predict_public():
     """Public prediction endpoint for the landing page."""
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
@@ -194,7 +223,7 @@ def predict_public():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    result = prediction_service.predict_sync(file)
+    result = service.predict_sync(file)
     if not result.get('success'):
         return jsonify({'error': result.get('error', 'Prediction failed')}), 500
 
@@ -208,6 +237,10 @@ def predict_public():
 @request_logger
 def predict():
     """Authenticated single-image prediction with history persistence."""
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
@@ -215,7 +248,7 @@ def predict():
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    result = prediction_service.predict_sync(file, g.user.id)
+    result = service.predict_sync(file, g.user.id)
     if not result.get('success'):
         return jsonify({'error': result.get('error', 'Prediction failed')}), 500
 
@@ -244,6 +277,10 @@ def predict():
 @request_logger
 def batch_predict():
     """Authenticated batch prediction endpoint."""
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
     if 'files[]' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
 
@@ -251,7 +288,7 @@ def batch_predict():
     if len(files) > current_app.config.get('MAX_BATCH_SIZE', 10):
         return jsonify({'error': f'Maximum batch size is {current_app.config.get("MAX_BATCH_SIZE")}'}), 400
 
-    results = prediction_service.batch_predict(files, g.user.id)
+    results = service.batch_predict(files, g.user.id)
     return jsonify({
         'success': True,
         'total': len(results),

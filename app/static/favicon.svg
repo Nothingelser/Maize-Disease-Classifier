@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#2ecc71" opacity="0.1"/>
+  
+  <!-- Leaf design -->
+  <g transform="translate(32, 32)">
+    <!-- Left leaf part -->
+    <ellipse cx="-8" cy="-2" rx="6" ry="12" fill="#27ae60" transform="rotate(-35 -8 -2)"/>
+    
+    <!-- Right leaf part -->
+    <ellipse cx="8" cy="-2" rx="6" ry="12" fill="#2ecc71" transform="rotate(35 8 -2)"/>
+    
+    <!-- Center vein -->
+    <line x1="0" y1="-15" x2="0" y2="10" stroke="#1e8449" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <!-- Left vein -->
+    <line x1="0" y1="-10" x2="-6" y2="-4" stroke="#1e8449" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+    
+    <!-- Right vein -->
+    <line x1="0" y1="-10" x2="6" y2="-4" stroke="#1e8449" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+  </g>
+</svg>

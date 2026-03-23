@@ -12,6 +12,9 @@ from urllib.parse import quote
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
+BASE_DIR = Path(__file__).parent.parent
+IS_VERCEL = os.environ.get('VERCEL') == '1'
+
 def normalize_database_url(url):
     """
     Normalize database URLs from .env, including bracket-wrapped passwords
@@ -56,9 +59,10 @@ class Config:
     TESTING = False
     
     # Database
+    _DEFAULT_SQLITE_PATH = Path('/tmp/app.db') if IS_VERCEL else (BASE_DIR / 'app.db')
     SQLALCHEMY_DATABASE_URI = resolve_database_url(
         'DATABASE_URL',
-        default='sqlite:///' + str(Path(__file__).parent.parent / 'app.db')
+        default='sqlite:///' + str(_DEFAULT_SQLITE_PATH)
     )
     validate_database_url(SQLALCHEMY_DATABASE_URI)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -69,7 +73,7 @@ class Config:
     
     # File Uploads
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
-    UPLOAD_FOLDER = str(Path(__file__).parent.parent / 'data' / 'uploads')
+    UPLOAD_FOLDER = str(Path('/tmp/uploads') if IS_VERCEL else (BASE_DIR / 'data' / 'uploads'))
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
     
     # Create upload folder if it doesn't exist
@@ -96,11 +100,12 @@ class Config:
     
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-    LOG_FILE = str(Path(__file__).parent.parent / 'logs' / 'app.log')
-    ERROR_LOG_FILE = str(Path(__file__).parent.parent / 'logs' / 'error.log')
+    _LOG_DIR = Path('/tmp/logs') if IS_VERCEL else (BASE_DIR / 'logs')
+    LOG_FILE = str(_LOG_DIR / 'app.log')
+    ERROR_LOG_FILE = str(_LOG_DIR / 'error.log')
     
     # Create logs directory
-    os.makedirs(Path(__file__).parent.parent / 'logs', exist_ok=True)
+    os.makedirs(_LOG_DIR, exist_ok=True)
     
     # Email Configuration (for notifications)
     SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
@@ -142,7 +147,7 @@ class Config:
     # Database (using Supabase PostgreSQL when configured)
     SQLALCHEMY_DATABASE_URI = resolve_database_url(
         'DATABASE_URL',
-        default='sqlite:///' + str(Path(__file__).parent.parent / 'app.db')
+        default='sqlite:///' + str(_DEFAULT_SQLITE_PATH)
     )
     validate_database_url(SQLALCHEMY_DATABASE_URI)
 
@@ -164,7 +169,7 @@ class DevelopmentConfig(Config):
         'DATABASE_POOLER_URL',
         'SUPABASE_POOLER_URL',
         'DATABASE_URL',
-        default='sqlite:///' + str(Path(__file__).parent.parent / 'dev.db')
+        default='sqlite:///' + str(Path('/tmp/dev.db') if IS_VERCEL else (BASE_DIR / 'dev.db'))
     )
     validate_database_url(SQLALCHEMY_DATABASE_URI)
     SQLALCHEMY_ECHO = True  # Log SQL queries
@@ -195,7 +200,7 @@ class TestingConfig(Config):
     # Use separate test database
     SQLALCHEMY_DATABASE_URI = resolve_database_url(
         'TEST_DATABASE_URL',
-        default='sqlite:///' + str(Path(__file__).parent.parent / 'test.db')
+        default='sqlite:///' + str(Path('/tmp/test.db') if IS_VERCEL else (BASE_DIR / 'test.db'))
     )
     validate_database_url(SQLALCHEMY_DATABASE_URI)
     
@@ -285,6 +290,19 @@ class ProductionConfig(Config):
         app.logger.setLevel(logging.INFO)
         app.logger.info('Application startup')
 
+class VercelConfig(Config):
+    """
+    Vercel-specific configuration.
+    Keeps production-safe defaults without forcing local-only env requirements.
+    """
+    DEBUG = False
+    TESTING = False
+    SESSION_COOKIE_SECURE = True
+    REMEMBER_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+
 class DockerConfig(ProductionConfig):
     """
     Docker-specific configuration
@@ -304,6 +322,7 @@ config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,
     'production': ProductionConfig,
+    'vercel': VercelConfig,
     'docker': DockerConfig,
     'default': DevelopmentConfig
 }
@@ -312,5 +331,9 @@ def get_config():
     """
     Get configuration based on FLASK_ENV environment variable
     """
-    env = os.environ.get('FLASK_ENV', 'development')
-    return config.get(env, config['default'])
+    env = os.environ.get('FLASK_ENV')
+    if env:
+        return config.get(env, config['default'])
+    if IS_VERCEL:
+        return config['vercel']
+    return config['default']

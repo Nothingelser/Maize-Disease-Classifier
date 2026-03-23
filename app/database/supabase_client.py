@@ -34,13 +34,14 @@ class SupabaseClient:
 
     def _initialize(self):
         self.url = os.environ.get("SUPABASE_URL")
-        self.key = os.environ.get("SUPABASE_KEY")
+        # Accept either env var name for compatibility with Vercel dashboard setup.
+        self.key = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_ANON_PUBLIC_KEY")
         self.service_key = os.environ.get("SUPABASE_SERVICE_KEY")
         self.client: Optional[Client] = None
         self.admin_client: Optional[Client] = None
 
         if not self.url or not self.key:
-            logger.warning("SUPABASE_URL and SUPABASE_KEY not set in environment")
+            logger.warning("SUPABASE_URL and SUPABASE_KEY (or SUPABASE_ANON_PUBLIC_KEY) not set in environment")
             return
 
         self.client = self._build_client(self.key)
