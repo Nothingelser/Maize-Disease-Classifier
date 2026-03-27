@@ -1,6 +1,4 @@
-# ============================================
 # Maize Disease Classifier - Production Requirements
-# ============================================
 
 # Core Flask Framework
 Flask
