@@ -4,14 +4,21 @@ API middleware for authentication, rate limiting, and logging
 from functools import wraps
 from flask import request, jsonify, g
 import time
-import redis
 import logging
 from app.database.supabase_client import supabase_client
+
+try:
+    import redis
+except ImportError:
+    redis = None
 
 logger = logging.getLogger(__name__)
 
 # Redis connection for rate limiting
 try:
+    if redis is None:
+        raise ImportError("redis package is not installed")
+
     redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
     redis_client.ping()
     redis_available = True

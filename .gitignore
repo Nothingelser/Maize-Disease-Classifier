@@ -27,6 +27,12 @@ logs/
 models/*.pkl
 models/*.h5
 models/*.joblib
+!models/maize_disease_classifier_maize.pkl
+!models/maize_disease_classifier_cassava.pkl
+!models/maize_disease_classifier_rice.pkl
+!models/maize_disease_classifier_tomato.pkl
+!models/maize_disease_classifier_potato.pkl
+!models/maize_disease_classifier_pepper_bell.pkl
 
 # Uploads
 data/uploads/*

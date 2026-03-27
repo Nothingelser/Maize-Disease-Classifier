@@ -4,11 +4,17 @@ Export service for generating reports and exports.
 import io
 import json
 import zipfile
+import csv
 from datetime import datetime
 from html import escape
 from typing import Iterable, List
 
-import pandas as pd
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    pd = None
+    HAS_PANDAS = False
 
 try:
     from reportlab.lib import colors
@@ -160,15 +166,27 @@ class ExportService:
 
     def generate_csv(self, predictions):
         """Generate CSV export for one or more predictions."""
-        df = pd.DataFrame(self._build_prediction_rows(predictions))
+        rows = self._build_prediction_rows(predictions)
         text_buffer = io.StringIO()
-        df.to_csv(text_buffer, index=False)
+
+        if HAS_PANDAS:
+            pd.DataFrame(rows).to_csv(text_buffer, index=False)
+        elif rows:
+            writer = csv.DictWriter(text_buffer, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        else:
+            text_buffer.write("ID,Image Name,Prediction,Confidence,Processing Time (ms),Date\n")
+
         buffer = io.BytesIO(text_buffer.getvalue().encode("utf-8"))
         buffer.seek(0)
         return buffer
 
     def generate_excel(self, predictions):
         """Generate Excel export with summary and prediction sheets."""
+        if not HAS_PANDAS:
+            raise RuntimeError("Excel export is unavailable because pandas is not installed")
+
         prediction_list = list(predictions)
         buffer = io.BytesIO()
 

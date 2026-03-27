@@ -83,7 +83,7 @@ class Config:
     # Model Configuration
     MODEL_PATH = os.environ.get(
         'MODEL_PATH',
-        str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier.pkl')
+        str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_maize.pkl')
     )
     MODEL_VERSION = '2.0.0'
     PREDICTION_CONFIDENCE_THRESHOLD = float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD', 0.60))

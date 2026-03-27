@@ -87,6 +87,16 @@ def _resolve_model_path_for_crop(crop_key):
     default_model_path = current_app.config.get('MODEL_PATH')
     if crop_model_path and not os.path.exists(crop_model_path):
         logger.warning("Crop model path for '%s' not found: %s. Falling back to default model.", crop_key, crop_model_path)
+
+    if default_model_path and os.path.exists(default_model_path):
+        return default_model_path
+
+    # If MODEL_PATH is stale/missing, pick the first available crop-specific model.
+    for _, candidate_path in model_paths.items():
+        if candidate_path and os.path.exists(candidate_path):
+            logger.warning("Default model path not found; using available crop model at %s", candidate_path)
+            return candidate_path
+
     return default_model_path
 
 
@@ -606,13 +616,16 @@ def export_batch():
             download_name='predictions_export_pdf_bundle.zip'
         )
     if export_format == 'excel':
-        excel = export_service.generate_excel(predictions)
-        return send_file(
-            excel,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name='predictions_export.xlsx'
-        )
+        try:
+            excel = export_service.generate_excel(predictions)
+            return send_file(
+                excel,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name='predictions_export.xlsx'
+            )
+        except RuntimeError as exc:
+            return jsonify({'error': str(exc)}), 503
 
     return jsonify({'error': 'Unsupported format'}), 400
 

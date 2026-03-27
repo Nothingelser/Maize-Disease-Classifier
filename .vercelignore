@@ -1,5 +1,6 @@
 # Large local-only assets and development artifacts
 data/raw/
+data/external/
 notebooks/
 reports/
 venv/
@@ -10,3 +11,13 @@ logs/
 *.db
 *.sqlite3
 instance/
+models/*.pkl
+models/*.joblib
+models/*.h5
+uploads/
+!models/maize_disease_classifier_maize.pkl
+!models/maize_disease_classifier_cassava.pkl
+!models/maize_disease_classifier_rice.pkl
+!models/maize_disease_classifier_tomato.pkl
+!models/maize_disease_classifier_potato.pkl
+!models/maize_disease_classifier_pepper_bell.pkl

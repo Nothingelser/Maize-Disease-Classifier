@@ -9,14 +9,12 @@ flask-jwt-extended
 supabase
 
 # Redis for Rate Limiting & Caching
-redis
+
 
 # Machine Learning & Data Processing
 scikit-learn
 numpy
-pandas
 opencv-python-headless
-Pillow
 joblib
 tqdm
 
@@ -29,7 +27,7 @@ click
 python-jose
 
 # Monitoring
-sentry-sdk
+
 
 # Production WSGI server
 gunicorn
