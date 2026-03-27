@@ -1,30 +1,13 @@
-// Core JavaScript for Maize Disease Classifier
-class MaizeDiseaseClassifier {
+// Core JavaScript for CropGuard workspace
+class CropDiseaseClassifier {
     constructor() {
         this.token = localStorage.getItem('token');
         this.currentFile = null;
-        this.recommendationsMap = {
-            'Blight': [
-                'Inspect nearby plants for lesion spread and isolate the worst-affected rows.',
-                'Plan fungicide intervention only after confirming severity and field conditions.',
-                'Capture follow-up images after treatment to monitor response.'
-            ],
-            'Gray Leaf Spot': [
-                'Review field humidity and canopy density because both can accelerate spread.',
-                'Prioritize repeat imaging on plants with rectangular lesions between veins.',
-                'Use resistant hybrids and rotation planning where pressure remains high.'
-            ],
-            'Healthy': [
-                'No disease signal is dominant in this sample, but continue routine scouting.',
-                'Keep collecting clean samples to maintain a strong comparison baseline.',
-                'Document environmental conditions if healthy leaves are being compared across fields.'
-            ],
-            'Maize Rust': [
-                'Check upper and lower leaf surfaces for pustule density before treatment decisions.',
-                'Track neighboring plants to see whether the outbreak is localized or expanding.',
-                'Consider resistant varieties and targeted spraying if pressure keeps increasing.'
-            ]
-        };
+        this.confidenceThreshold = 0.6;
+        this.classNames = [];
+        this.displayClassNames = [];
+        this.recommendationsMap = {};
+        this.activeCrop = document.body?.dataset?.activeCrop || '';
         this.syncAuthState();
         this.init();
     }
@@ -32,7 +15,133 @@ class MaizeDiseaseClassifier {
     init() {
         this.setupUpload();
         this.setupEventListeners();
+        this.loadModelInfo();
         this.checkAuth();
+    }
+
+    async loadModelInfo() {
+        try {
+            const response = await fetch(this.getApiPath('/model/info'));
+            if (!response.ok) return;
+
+            const data = await response.json();
+            this.classNames = Array.isArray(data.classes) ? data.classes : [];
+            this.displayClassNames = Array.isArray(data.display_classes)
+                ? data.display_classes
+                : this.classNames.map((label) => this.formatLabel(label));
+            if (typeof data.confidence_threshold === 'number') {
+                this.confidenceThreshold = data.confidence_threshold;
+            }
+
+            this.renderDiseaseLibrary();
+            this.updateClassCount();
+            this.updateLandingStats(data);
+            this.updateConfidenceThresholdDisplay();
+        } catch (error) {
+            // Model metadata is optional for page bootstrap.
+        }
+    }
+
+    getApiPath(path) {
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        if (this.activeCrop) {
+            return `/api/${this.activeCrop}${normalizedPath}`;
+        }
+        return `/api${normalizedPath}`;
+    }
+
+    updateConfidenceThresholdDisplay() {
+        const thresholdDisplay = document.getElementById('confidenceThresholdDisplay');
+        if (thresholdDisplay) {
+            thresholdDisplay.textContent = `${(this.confidenceThreshold * 100).toFixed(0)}%`;
+        }
+    }
+
+    updateLandingStats(modelInfo) {
+        // Update hero stats on landing page
+        const diseaseClassCount = document.getElementById('diseaseClassCount');
+        if (diseaseClassCount && this.classNames.length) {
+            diseaseClassCount.textContent = String(this.classNames.length);
+        }
+
+        const featureSpace = document.getElementById('featureSpace');
+        if (featureSpace && modelInfo.features) {
+            featureSpace.textContent = String(modelInfo.features);
+        }
+
+        const modelAccuracy = document.getElementById('modelAccuracy');
+        if (modelAccuracy && modelInfo.accuracy) {
+            const accuracyPercent = (modelInfo.accuracy * 100).toFixed(1);
+            modelAccuracy.textContent = accuracyPercent + '%';
+        }
+    }
+
+    updateClassCount() {
+        const classesCount = document.getElementById('classesCount');
+        if (classesCount) {
+            const count = this.displayClassNames.length || this.classNames.length;
+            if (count) classesCount.textContent = String(count);
+        }
+    }
+
+    renderDiseaseLibrary() {
+        const grid = document.getElementById('diseaseLibraryGrid');
+        if (!grid || this.displayClassNames.length === 0) return;
+
+        grid.innerHTML = this.displayClassNames.map((displayLabel) => {
+            return `
+                <div class="disease-card">
+                    <div class="icon-wrap"><i class="fas fa-seedling"></i></div>
+                    <h3>${displayLabel}</h3>
+                    <p class="muted">Model-recognized class available in the current training set.</p>
+                </div>
+            `;
+        }).join('');
+    }
+
+    formatLabel(label) {
+        return String(label || '').replace(/___/g, ' / ').replace(/_/g, ' ').trim();
+    }
+
+    inferCondition(rawLabel, displayLabel) {
+        const merged = `${rawLabel || ''} ${displayLabel || ''}`.toLowerCase();
+        if (merged.includes('healthy')) return 'healthy';
+        if (merged.includes('rust')) return 'rust';
+        if (merged.includes('blight')) return 'blight';
+        if (merged.includes('spot') || merged.includes('mold') || merged.includes('lesion')) return 'spot';
+        return 'other';
+    }
+
+    getRecommendations(rawLabel, displayLabel) {
+        const condition = this.inferCondition(rawLabel, displayLabel);
+        const byCondition = {
+            healthy: [
+                'No dominant disease signal detected; continue routine scouting on nearby plants.',
+                'Capture periodic comparison images to monitor for early changes over time.',
+                'Maintain balanced irrigation and nutrition to sustain plant resilience.'
+            ],
+            rust: [
+                'Inspect both leaf surfaces to confirm rust pustule density and spread pattern.',
+                'Track surrounding plants to determine whether the outbreak is localized or expanding.',
+                'Use integrated management, including resistant varieties and targeted treatment when warranted.'
+            ],
+            blight: [
+                'Inspect adjacent plants for lesion expansion and remove heavily affected tissue where practical.',
+                'Review humidity, canopy density, and irrigation timing that may be accelerating spread.',
+                'Follow local agronomy guidance before fungicide use and document follow-up image checks.'
+            ],
+            spot: [
+                'Increase scouting frequency to validate lesion progression across the field block.',
+                'Reduce leaf wetness duration where possible through spacing and irrigation scheduling.',
+                'Use crop-specific integrated disease management guidance from local extension services.'
+            ],
+            other: [
+                'Review this result with field context before taking intervention decisions.',
+                'Capture additional clear images from multiple leaves for confidence checks.',
+                'Escalate uncertain or severe cases to a local crop specialist.'
+            ]
+        };
+        return byCondition[condition];
     }
     
     setupUpload() {
@@ -140,7 +249,7 @@ class MaizeDiseaseClassifier {
         const formData = new FormData();
         formData.append('file', file);
         const hasToken = this.hasValidToken();
-        const endpoint = hasToken ? '/api/predict' : '/api/predict/public';
+        const endpoint = hasToken ? this.getApiPath('/predict') : this.getApiPath('/predict/public');
         
         try {
             let response = await fetch(endpoint, {
@@ -153,7 +262,7 @@ class MaizeDiseaseClassifier {
                 this.clearAuthState();
                 this.checkAuth();
                 this.showNotification('Your session expired. Continuing with a public prediction.', 'error');
-                response = await fetch('/api/predict/public', {
+                response = await fetch(this.getApiPath('/predict/public'), {
                     method: 'POST',
                     body: formData
                 });
@@ -193,6 +302,7 @@ class MaizeDiseaseClassifier {
         const confidenceText = document.getElementById('confidenceText');
         const confidenceBar = document.getElementById('confidenceBar');
         const timestampText = document.getElementById('timestampText');
+        const confidenceStatus = document.getElementById('confidenceStatus');
 
         if (previewArea) previewArea.style.display = 'none';
         if (uploadZone) uploadZone.style.display = 'flex';
@@ -207,6 +317,10 @@ class MaizeDiseaseClassifier {
         if (confidenceText) confidenceText.textContent = '0%';
         if (confidenceBar) confidenceBar.style.width = '0%';
         if (timestampText) timestampText.textContent = 'Not yet run';
+        if (confidenceStatus) {
+            confidenceStatus.className = 'confidence-status';
+            confidenceStatus.textContent = 'Confidence status will appear after analysis.';
+        }
         if (probabilities) {
             probabilities.innerHTML = '<div class="metadata-placeholder">Probabilities will appear here after prediction.</div>';
         }
@@ -232,6 +346,13 @@ class MaizeDiseaseClassifier {
         const timestampText = document.getElementById('timestampText');
         const recommendations = document.getElementById('recommendations');
         const metadata = document.getElementById('metadata');
+        const confidenceStatus = document.getElementById('confidenceStatus');
+        const threshold = typeof data.confidence_threshold === 'number'
+            ? data.confidence_threshold
+            : this.confidenceThreshold;
+
+        this.confidenceThreshold = threshold;
+        this.updateConfidenceThresholdDisplay();
 
         if (predictionText) {
             predictionText.textContent = data.prediction;
@@ -246,6 +367,18 @@ class MaizeDiseaseClassifier {
             confidenceBar.style.width = `${data.confidence * 100}%`;
         }
 
+        const lowConfidence = Boolean(data.is_low_confidence) || (data.confidence < threshold);
+        if (confidenceStatus) {
+            if (lowConfidence) {
+                confidenceStatus.className = 'confidence-status confidence-status-warning';
+                confidenceStatus.textContent = data.confidence_message
+                    || `Low confidence (< ${(threshold * 100).toFixed(0)}%). Capture another image before acting.`;
+            } else {
+                confidenceStatus.className = 'confidence-status confidence-status-ok';
+                confidenceStatus.textContent = `Confidence is above threshold (${(threshold * 100).toFixed(0)}%).`;
+            }
+        }
+
         if (resultsSection) {
             resultsSection.style.display = 'block';
         }
@@ -257,12 +390,15 @@ class MaizeDiseaseClassifier {
         const probContainer = document.getElementById('probabilities');
         if (probContainer) {
             probContainer.innerHTML = '';
-            data.probabilities.forEach(prob => {
+            const probabilities = Array.isArray(data.probabilities)
+                ? [...data.probabilities].sort((a, b) => b.probability - a.probability)
+                : [];
+            probabilities.slice(0, 4).forEach(prob => {
                 const percentage = (prob.probability * 100).toFixed(1);
                 probContainer.innerHTML += `
                     <div class="probability-item">
                         <div class="probability-label">
-                            <span>${prob.class}</span>
+                            <span>${prob.display_class || this.formatLabel(prob.class)}</span>
                             <span>${percentage}%</span>
                         </div>
                         <div class="progress">
@@ -274,10 +410,7 @@ class MaizeDiseaseClassifier {
         }
 
         if (recommendations) {
-            const items = this.recommendationsMap[data.prediction] || [
-                'Review the image manually before taking field action.',
-                'Record the result in the reports workspace for later comparison.'
-            ];
+            const items = this.getRecommendations(data.prediction_label, data.prediction);
             recommendations.innerHTML = `<ul class="recommendation-list">${items.map((item) => `<li>${item}</li>`).join('')}</ul>`;
         }
 
@@ -286,12 +419,22 @@ class MaizeDiseaseClassifier {
                 <h3>Image metadata</h3>
                 <p class="section-copy">Basic details captured during the current browser session.</p>
                 <div class="info-list" style="margin-top: 18px;">
+                    <div class="info-item"><span>Crop app</span><strong>${data.crop ? this.formatLabel(data.crop) : 'All crops'}</strong></div>
                     <div class="info-item"><span>Predicted class</span><strong>${data.prediction}</strong></div>
                     <div class="info-item"><span>Processing time</span><strong>${data.processing_time.toFixed(0)} ms</strong></div>
                     <div class="info-item"><span>Top confidence</span><strong>${(data.confidence * 100).toFixed(1)}%</strong></div>
+                    <div class="info-item"><span>Confidence threshold</span><strong>${(threshold * 100).toFixed(0)}%</strong></div>
                     <div class="info-item"><span>Probability entries</span><strong>${data.probabilities.length}</strong></div>
                 </div>
             `;
+        }
+
+        if (lowConfidence && Array.isArray(data.top_predictions) && data.top_predictions.length > 1) {
+            const secondChoice = data.top_predictions[1];
+            this.showNotification(
+                `Low-confidence prediction. Alternate class: ${secondChoice.display_class} (${(secondChoice.probability * 100).toFixed(1)}%).`,
+                'error'
+            );
         }
     }
     
@@ -378,6 +521,16 @@ class MaizeDiseaseClassifier {
     }
     
     setupEventListeners() {
+        const cropAppSelect = document.getElementById('cropAppSelect');
+        cropAppSelect?.addEventListener('change', (event) => {
+            const nextCrop = String(event.target.value || '').trim();
+            if (!nextCrop) {
+                window.location.href = '/workspace';
+                return;
+            }
+            window.location.href = `/apps/${nextCrop}`;
+        });
+
         // Logout button
         document.getElementById('logoutBtn')?.addEventListener('click', () => {
             this.clearAuthState();
@@ -390,17 +543,18 @@ class MaizeDiseaseClassifier {
     }
 
     getBadgeClass(prediction) {
-        const classes = {
-            'Blight': 'badge-blight',
-            'Gray Leaf Spot': 'badge-gray-leaf-spot',
-            'Healthy': 'badge-healthy',
-            'Maize Rust': 'badge-maize-rust'
-        };
-        return classes[prediction] || 'badge-healthy';
+        const normalized = String(prediction || '').toLowerCase();
+        if (normalized.includes('healthy')) return 'badge-healthy';
+        if (normalized.includes('blight')) return 'badge-blight';
+        if (normalized.includes('rust')) return 'badge-maize-rust';
+        if (normalized.includes('spot') || normalized.includes('mold') || normalized.includes('lesion')) {
+            return 'badge-gray-leaf-spot';
+        }
+        return 'badge-generic';
     }
 }
 
 // Initialize when DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.classifier = new MaizeDiseaseClassifier();
+    window.classifier = new CropDiseaseClassifier();
 });

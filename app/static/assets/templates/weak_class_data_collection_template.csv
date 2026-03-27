@@ -1,0 +1,2 @@
+priority_rank,class_name,target_new_images,min_capture_resolution,lighting_condition,leaf_stage,region_or_farm,capture_device,symptom_severity,expert_verified_label,current_avg_confidence,low_confidence_ratio,confidence_threshold,notes
+1,Example_Class,200,1024x1024,Natural light preferred,young|mature|mixed,,,mild|moderate|severe,yes|no,0.0000,0.0000,0.60,Replace example row with weak class names from monitoring API

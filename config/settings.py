@@ -4,6 +4,7 @@ Loads environment variables and provides configuration classes
 """
 import os
 import re
+import json
 from dotenv import load_dotenv
 from pathlib import Path
 from urllib.parse import quote
@@ -85,6 +86,58 @@ class Config:
         str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier.pkl')
     )
     MODEL_VERSION = '2.0.0'
+    PREDICTION_CONFIDENCE_THRESHOLD = float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD', 0.60))
+    CROP_MODEL_PATHS = {
+        'maize': os.environ.get(
+            'MODEL_PATH_MAIZE',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_maize.pkl')
+        ),
+        'cassava': os.environ.get(
+            'MODEL_PATH_CASSAVA',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_cassava.pkl')
+        ),
+        'rice': os.environ.get(
+            'MODEL_PATH_RICE',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_rice.pkl')
+        ),
+        'tomato': os.environ.get(
+            'MODEL_PATH_TOMATO',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_tomato.pkl')
+        ),
+        'potato': os.environ.get(
+            'MODEL_PATH_POTATO',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_potato.pkl')
+        ),
+        'pepper_bell': os.environ.get(
+            'MODEL_PATH_PEPPER_BELL',
+            str(Path(__file__).parent.parent / 'models' / 'maize_disease_classifier_pepper_bell.pkl')
+        ),
+    }
+    CROP_CONFIDENCE_THRESHOLDS = {
+        'maize': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_MAIZE', 0.65)),
+        'cassava': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_CASSAVA', 0.78)),
+        'rice': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_RICE', 0.60)),
+        'tomato': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_TOMATO', 0.70)),
+        'potato': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_POTATO', 0.65)),
+        'pepper_bell': float(os.environ.get('PREDICTION_CONFIDENCE_THRESHOLD_PEPPER_BELL', 0.65)),
+    }
+
+    _CROP_MODEL_PATHS_RAW = os.environ.get('CROP_MODEL_PATHS_JSON')
+    if _CROP_MODEL_PATHS_RAW:
+        try:
+            CROP_MODEL_PATHS.update(json.loads(_CROP_MODEL_PATHS_RAW))
+        except Exception:
+            pass
+
+    _CROP_THRESHOLDS_RAW = os.environ.get('CROP_CONFIDENCE_THRESHOLDS_JSON')
+    if _CROP_THRESHOLDS_RAW:
+        try:
+            CROP_CONFIDENCE_THRESHOLDS.update({
+                key: float(value)
+                for key, value in json.loads(_CROP_THRESHOLDS_RAW).items()
+            })
+        except Exception:
+            pass
     
     # Image Processing
     IMG_SIZE = (128, 128)  # Height, Width

@@ -1,5 +1,5 @@
 """
-Application factory for Maize Disease Classifier.
+Application factory for Plant Disease Classifier.
 """
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -102,6 +102,6 @@ def register_context_processors(app):
         return dict(
             current_year=current_year,
             get_config_value=get_config_value,
-            app_name='Maize Disease Classifier',
+            app_name='Plant Disease Classifier',
             app_version=app.config.get('MODEL_VERSION', '2.0.0')
         )

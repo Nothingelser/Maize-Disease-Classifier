@@ -1,19 +1,57 @@
 """
 Main routes for server-rendered application pages.
 """
-from flask import Blueprint, render_template, jsonify
+from flask import Blueprint, render_template, jsonify, abort
 
 main_bp = Blueprint('main', __name__)
 
+CROP_APPS = [
+    {'key': 'maize', 'name': 'Maize', 'subtitle': 'Blight, rust, gray leaf spot analysis'},
+    {'key': 'cassava', 'name': 'Cassava', 'subtitle': 'Mosaic, streak, and blight diagnostics'},
+    {'key': 'rice', 'name': 'Rice', 'subtitle': 'Leaf blast and bacterial disease checks'},
+    {'key': 'tomato', 'name': 'Tomato', 'subtitle': 'Multi-disease tomato leaf workflow'},
+    {'key': 'potato', 'name': 'Potato', 'subtitle': 'Early and late blight monitoring'},
+    {'key': 'pepper_bell', 'name': 'Pepper Bell', 'subtitle': 'Healthy vs bacterial spot detection'},
+]
+
+
+def _render_detection_workspace(active_crop=None):
+    """Render the main detection workspace with optional crop scoping."""
+    crop_title = None
+    if active_crop:
+        matching = next((crop for crop in CROP_APPS if crop['key'] == active_crop), None)
+        if not matching:
+            abort(404)
+        crop_title = matching['name']
+
+    return render_template(
+        'professional_index.html',
+        active_crop=active_crop,
+        crop_title=crop_title,
+        crop_apps=CROP_APPS,
+    )
+
 @main_bp.route('/')
+def app_hub():
+    """Crop app hub page."""
+    return render_template('app_hub.html', crop_apps=CROP_APPS)
+
+
+@main_bp.route('/workspace')
 def home():
-    """Landing page."""
-    return render_template('professional_index.html')
+    """All-crop workspace page."""
+    return _render_detection_workspace()
+
+
+@main_bp.route('/apps/<crop>')
+def crop_app(crop):
+    """Crop-specific detection workspace route."""
+    return _render_detection_workspace(active_crop=crop)
 
 @main_bp.route('/health')
 def health():
     """Simple app health page."""
-    return jsonify({"status": "healthy", "message": "Maize Disease Classifier is running"}), 200
+    return jsonify({"status": "healthy", "message": "Plant Disease Classifier is running"}), 200
 
 @main_bp.route('/dashboard')
 def dashboard():

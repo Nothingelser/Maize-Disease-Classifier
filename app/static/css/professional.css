@@ -824,6 +824,7 @@ img {
 .badge-gray-leaf-spot { background: rgba(201, 150, 42, 0.15); color: #7d5a0c; }
 .badge-healthy { background: rgba(47, 107, 66, 0.13); color: #1f5130; }
 .badge-maize-rust { background: rgba(60, 127, 130, 0.14); color: #215f62; }
+.badge-generic { background: rgba(69, 81, 102, 0.14); color: #39475f; }
 
 .info-list,
 .data-list {
@@ -879,6 +880,28 @@ img {
     justify-content: space-between;
     gap: 12px;
     font-weight: 700;
+}
+
+.confidence-status {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    background: var(--surface-muted);
+    color: var(--muted);
+}
+
+.confidence-status-ok {
+    border-color: rgba(47, 107, 66, 0.28);
+    background: rgba(47, 107, 66, 0.1);
+    color: var(--primary-strong);
+}
+
+.confidence-status-warning {
+    border-color: rgba(182, 84, 72, 0.35);
+    background: rgba(182, 84, 72, 0.12);
+    color: var(--danger);
 }
 
 .recommendation-card,

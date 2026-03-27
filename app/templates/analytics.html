@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics | MaizeGuard AI</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Analytics | CropGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -24,7 +24,7 @@
                 <a class="brand" href="/">
                     <div class="brand-mark"><i class="fas fa-leaf"></i></div>
                     <div class="brand-copy">
-                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-title">CropGuard AI</span>
                         <span class="brand-subtitle">Analytics workspace</span>
                     </div>
                 </a>
@@ -170,11 +170,32 @@
                     </div>
                 </div>
             </section>
+
+            <section class="chart-grid" style="margin-top: 20px; grid-template-columns: 1fr;">
+                <div class="chart-box">
+                    <div class="section-heading">
+                        <div>
+                            <h3>Class improvement monitoring</h3>
+                            <div class="section-copy">Tracks weak classes using low-confidence ratios and average class confidence.</div>
+                        </div>
+                        <button class="btn btn-secondary" id="downloadTemplateBtn" type="button">
+                            <i class="fas fa-file-csv"></i>
+                            Download data collection template
+                        </button>
+                    </div>
+                    <div id="classMonitoringContainer" class="stack">
+                        <div class="insight-card">
+                            <strong>Loading class health...</strong>
+                            <div class="section-copy" style="margin-top: 6px;">Class monitoring metrics will appear here.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer class="site-footer">
             <div class="site-footer-inner">
-                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-copy">&copy; 2026 CropGuard AI. All rights reserved.</div>
                 <div class="site-footer-links">
                     <a href="/about">About</a>
                     <a href="/privacy">Privacy</a>
@@ -192,6 +213,7 @@
                 this.token = localStorage.getItem('token');
                 this.currentPeriod = 'week';
                 this.charts = {};
+                this.classMonitoring = null;
                 this.init();
             }
 
@@ -221,22 +243,28 @@
                     localStorage.removeItem('token');
                     window.location.href = '/login';
                 });
+
+                document.getElementById('downloadTemplateBtn')?.addEventListener('click', () => {
+                    this.downloadDataCollectionTemplate();
+                });
             }
 
             async loadData() {
                 this.showLoading(true);
 
                 try {
-                    const response = await fetch(`/api/analytics?period=${this.currentPeriod}`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.token}`
-                        }
-                    });
+                    const headers = { 'Authorization': `Bearer ${this.token}` };
+                    const [analyticsResponse, monitoringResponse] = await Promise.all([
+                        fetch(`/api/analytics?period=${this.currentPeriod}`, { headers }),
+                        fetch(`/api/monitoring/class-health?period=${this.currentPeriod}`, { headers })
+                    ]);
 
-                    const data = await response.json();
+                    const data = await analyticsResponse.json();
+                    this.classMonitoring = await monitoringResponse.json();
                     this.updateUI(data);
                     this.updateCharts(data);
                     this.updateInsights(data);
+                    this.updateClassMonitoring(this.classMonitoring);
                 } catch (error) {
                     console.error('Failed to load analytics:', error);
                     this.showError('Failed to load analytics data');
@@ -304,14 +332,21 @@
                 }
 
                 const confidenceCtx = document.getElementById('confidenceTrendChart').getContext('2d');
+                const confidenceSeries = data.daily_predictions && data.daily_predictions.length > 0
+                    ? data.daily_predictions.map(() => (data.average_confidence || 0) * 100)
+                    : [0, 0, 0, 0, 0, 0, 0];
+                const confidenceLabels = data.daily_predictions && data.daily_predictions.length > 0
+                    ? data.daily_predictions.map((item) => item.date)
+                    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
                 if (this.charts.confidence) this.charts.confidence.destroy();
                 this.charts.confidence = new Chart(confidenceCtx, {
                     type: 'line',
                     data: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        labels: confidenceLabels,
                         datasets: [{
                             label: 'Confidence (%)',
-                            data: [85, 87, 89, 90, 91, 92],
+                            data: confidenceSeries,
                             borderColor: '#2f6b42',
                             backgroundColor: 'rgba(47, 107, 66, 0.12)',
                             tension: 0.35,
@@ -359,6 +394,73 @@
                 });
             }
 
+            updateClassMonitoring(data) {
+                const container = document.getElementById('classMonitoringContainer');
+                if (!container) return;
+
+                const weakClasses = Array.isArray(data?.weak_classes) ? data.weak_classes : [];
+                const threshold = Number(data?.confidence_threshold || 0.6);
+
+                if (weakClasses.length === 0) {
+                    container.innerHTML = `
+                        <div class="insight-card">
+                            <strong>No weak classes flagged</strong>
+                            <div class="section-copy" style="margin-top: 6px;">
+                                No classes are currently below the ${(threshold * 100).toFixed(0)}% confidence threshold in this period.
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const rows = weakClasses.slice(0, 8).map((item, index) => {
+                    const avg = (item.average_confidence * 100).toFixed(1);
+                    const lowRatio = (item.low_confidence_ratio * 100).toFixed(1);
+                    return `
+                        <div class="insight-card">
+                            <strong>#${index + 1} ${item.class_name}</strong>
+                            <div class="section-copy" style="margin-top: 6px;">
+                                Avg confidence: ${avg}% | Low-confidence share: ${lowRatio}% | Predictions: ${item.total_predictions}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML = rows;
+            }
+
+            downloadDataCollectionTemplate() {
+                const period = encodeURIComponent(this.currentPeriod);
+                const threshold = encodeURIComponent((this.classMonitoring?.confidence_threshold || 0.6).toString());
+                const url = `/api/monitoring/data-collection-template?period=${period}&threshold=${threshold}`;
+
+                fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error('Unable to download template');
+                        }
+                        return response.blob();
+                    })
+                    .then((blob) => {
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = 'weak_class_data_collection_template.csv';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(downloadUrl);
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                        this.showError('Failed to download data collection template');
+                    });
+            }
+
             updateInsights(data) {
                 const container = document.getElementById('insightsContainer');
                 if (!container) return;
@@ -389,6 +491,14 @@
                     });
                 }
 
+                if (this.classMonitoring?.weak_classes?.length) {
+                    const topWeak = this.classMonitoring.weak_classes[0];
+                    insights.push({
+                        title: 'Top improvement candidate',
+                        description: `${topWeak.class_name} is currently the weakest class signal. Prioritize new labeled images for this class.`
+                    });
+                }
+
                 insights.push({
                     title: 'Operational guidance',
                     description: 'Use the reports page to export the current prediction history when you need to share evidence outside the app.'
@@ -413,3 +523,4 @@
     </script>
 </body>
 </html>
+

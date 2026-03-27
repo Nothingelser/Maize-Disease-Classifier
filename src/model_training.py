@@ -14,7 +14,7 @@ class MaizeDiseaseClassifier:
     Random Forest classifier for maize disease detection
     """
     
-    def __init__(self, n_estimators=100, max_depth=None, random_state=42):
+    def __init__(self, n_estimators=100, max_depth=None, random_state=42, class_weight=None):
         """
         Initialize the classifier
         
@@ -22,11 +22,14 @@ class MaizeDiseaseClassifier:
             n_estimators: number of trees in the forest
             max_depth: maximum depth of trees
             random_state: seed for reproducibility
+            class_weight: class weighting strategy for imbalanced datasets
         """
+        self.class_weight = class_weight
         self.model = RandomForestClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
             random_state=random_state,
+            class_weight=class_weight,
             n_jobs=-1  # Use all available CPU cores
         )
         self.classes = None
@@ -44,6 +47,7 @@ class MaizeDiseaseClassifier:
         logger.info(f"Number of trees: {self.model.n_estimators}")
         logger.info(f"Training samples: {X_train.shape[0]}")
         logger.info(f"Features: {X_train.shape[1]}")
+        logger.info(f"Class weight: {self.model.class_weight}")
         
         self.model.fit(X_train, y_train)
         self.classes = self.model.classes_
@@ -76,10 +80,13 @@ class MaizeDiseaseClassifier:
         
         # Create grid search
         grid_search = GridSearchCV(
-            RandomForestClassifier(random_state=42),
+            RandomForestClassifier(
+                random_state=42,
+                class_weight=self.class_weight
+            ),
             param_grid,
             cv=5,  # 5-fold cross validation
-            scoring='accuracy',
+            scoring='balanced_accuracy',
             n_jobs=-1,
             verbose=1
         )

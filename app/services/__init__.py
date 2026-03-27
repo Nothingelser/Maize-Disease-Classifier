@@ -1,5 +1,5 @@
 """
-Services package for Maize Disease Classifier
+Services package for Plant Disease Classifier
 """
 from app.services.prediction_service import PredictionService
 from app.services.analytics_service import AnalyticsService

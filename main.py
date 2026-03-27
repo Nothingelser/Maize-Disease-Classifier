@@ -1,17 +1,27 @@
 """
-Main pipeline for maize disease classification project
+Main pipeline for multi-crop plant disease classification project
 """
 import os
-from src.data_preprocessing import MaizeLeafPreprocessor
+import json
+from src.data_preprocessing import LeafPreprocessor
 from src.model_training import MaizeDiseaseClassifier
 from src.evaluation import ModelEvaluator
+
+
+def save_class_metadata(classes, output_path):
+    """Persist class labels so inference can decode model outputs correctly."""
+    payload = {
+        'classes': [str(class_name) for class_name in classes]
+    }
+    with open(output_path, 'w', encoding='utf-8') as metadata_file:
+        json.dump(payload, metadata_file, indent=2)
 
 def main():
     """
     Main execution function
     """
     print("\n" + "="*60)
-    print("ðŸŒ½ MAIZE DISEASE CLASSIFICATION PROJECT")
+    print("ðŸŒ± PLANT DISEASE CLASSIFICATION PROJECT")
     print("="*60 + "\n")
     
     # Configuration
@@ -33,7 +43,7 @@ def main():
     print("ðŸ“ STEP 1: Data Preprocessing")
     print("-"*40)
     
-    preprocessor = MaizeLeafPreprocessor(img_size=IMG_SIZE)
+    preprocessor = LeafPreprocessor(img_size=IMG_SIZE)
     data = preprocessor.prepare_dataset(DATA_PATH, test_size=0.3)
     
     # Step 2: Train model
@@ -54,6 +64,7 @@ def main():
     # Save model
     os.makedirs('models', exist_ok=True)
     classifier.save_model(MODEL_PATH)
+    save_class_metadata(data['classes'], 'models/class_labels.json')
     
     # Step 3: Evaluate model
     print("\n" + "-"*40)
@@ -77,6 +88,7 @@ def main():
     print("="*60)
     print("\nResults saved in:")
     print("  - Trained model: models/maize_disease_classifier.pkl")
+    print("  - Class metadata: models/class_labels.json")
     print("  - Confusion matrix: reports/confusion_matrix.png")
     if 'feature_importance' in results:
         print("  - Feature importance: reports/feature_importance.png")

@@ -1,5 +1,5 @@
 """
-API routes for Maize Disease Classifier.
+API routes for Plant Disease Classifier.
 """
 from flask import Blueprint, request, jsonify, current_app, g, render_template, send_file
 from app.services.prediction_service import PredictionService
@@ -9,6 +9,9 @@ from app.database.supabase_client import supabase_client
 from app.api.middleware import RateLimiter, RequestLogger, AuthenticationMiddleware
 import datetime
 import logging
+import os
+import csv
+from io import StringIO, BytesIO
 import smtplib
 from email.message import EmailMessage
 
@@ -58,27 +61,146 @@ def require_supabase():
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-_prediction_service = None
-_prediction_service_error = None
+_prediction_services = {}
+_prediction_service_errors = {}
 
 
-def get_prediction_service():
-    """Lazily initialize prediction service so app startup does not fail."""
-    global _prediction_service, _prediction_service_error
+def _normalize_crop_key(crop):
+    return str(crop or '').strip().lower().replace('-', '_').replace(' ', '_')
 
-    if _prediction_service is not None:
-        return _prediction_service
 
-    if _prediction_service_error is not None:
+def _resolve_crop_alias(crop):
+    crop_key = _normalize_crop_key(crop)
+    aliases = {
+        'pepper': 'pepper_bell',
+        'bell_pepper': 'pepper_bell',
+    }
+    return aliases.get(crop_key, crop_key)
+
+
+def _resolve_model_path_for_crop(crop_key):
+    model_paths = current_app.config.get('CROP_MODEL_PATHS', {}) or {}
+    crop_model_path = model_paths.get(crop_key)
+    if crop_model_path and os.path.exists(crop_model_path):
+        return crop_model_path
+
+    default_model_path = current_app.config.get('MODEL_PATH')
+    if crop_model_path and not os.path.exists(crop_model_path):
+        logger.warning("Crop model path for '%s' not found: %s. Falling back to default model.", crop_key, crop_model_path)
+    return default_model_path
+
+
+def _resolve_labels_path_for_crop(crop_key):
+    if not crop_key:
         return None
+
+    candidate_path = os.path.join(
+        os.path.dirname(current_app.config.get('MODEL_PATH')),
+        f'class_labels_{crop_key}.json',
+    )
+    if os.path.exists(candidate_path):
+        return candidate_path
+    return None
+
+
+def get_prediction_service(crop=None):
+    """Lazily initialize prediction service so app startup does not fail."""
+    crop_key = _resolve_crop_alias(crop) if crop else None
+    cache_key = crop_key or '__default__'
+
+    if cache_key in _prediction_services:
+        return _prediction_services[cache_key]
+
+    if cache_key in _prediction_service_errors:
+        return None
+
+    model_path = _resolve_model_path_for_crop(crop_key)
+    labels_path = _resolve_labels_path_for_crop(crop_key)
 
     try:
-        _prediction_service = PredictionService()
-        return _prediction_service
+        service = PredictionService(model_path=model_path, labels_path=labels_path)
+        _prediction_services[cache_key] = service
+        return service
     except Exception as exc:
-        _prediction_service_error = str(exc)
-        logger.exception("Prediction service initialization failed")
+        _prediction_service_errors[cache_key] = str(exc)
+        logger.exception("Prediction service initialization failed for crop '%s'", crop_key or 'default')
         return None
+
+
+def _resolve_confidence_threshold(crop=None):
+    default_threshold = float(current_app.config.get('PREDICTION_CONFIDENCE_THRESHOLD', 0.60))
+    crop_key = _resolve_crop_alias(crop) if crop else None
+    if not crop_key:
+        return default_threshold
+
+    thresholds = current_app.config.get('CROP_CONFIDENCE_THRESHOLDS', {}) or {}
+    value = thresholds.get(crop_key)
+    if value is None:
+        return default_threshold
+    return float(value)
+
+
+def _apply_confidence_flags(result, crop=None):
+    """Attach confidence threshold annotations to prediction responses."""
+    threshold = _resolve_confidence_threshold(crop)
+    result['confidence_threshold'] = threshold
+    result['is_low_confidence'] = float(result.get('confidence', 0.0)) < threshold
+    if result['is_low_confidence']:
+        result['confidence_message'] = 'Low confidence result. Capture another image and verify before treatment decisions.'
+    return result
+
+
+def _get_upload_file():
+    """Read and validate uploaded prediction file."""
+    if 'file' not in request.files:
+        return None, (jsonify({'error': 'No file provided'}), 400)
+
+    file = request.files['file']
+    if file.filename == '':
+        return None, (jsonify({'error': 'No file selected'}), 400)
+
+    return file, None
+
+
+def _run_single_prediction(*, crop=None, user_id=None, persist=False):
+    """Execute a prediction and optionally persist authenticated history."""
+    service = get_prediction_service(crop=crop)
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
+    file, error_response = _get_upload_file()
+    if error_response:
+        return error_response
+
+    result = service.predict_sync(file, user_id=user_id, crop=crop)
+    if not result.get('success'):
+        status_code = 400 if result.get('available_crops') else 500
+        return jsonify({'error': result.get('error', 'Prediction failed'), 'available_crops': result.get('available_crops', [])}), status_code
+
+    _apply_confidence_flags(result, crop=result.get('crop') or crop)
+
+    if not persist:
+        result['saved'] = False
+        result['auth_required_for_history'] = True
+        return jsonify(result), 200
+
+    save_result = supabase_client.create_prediction(
+        user_id=user_id,
+        image_name=file.filename,
+        prediction=result.get('prediction_label', result['prediction']),
+        confidence=result['confidence'],
+        probabilities=result['probabilities'],
+        processing_time=result['processing_time'],
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get('User-Agent'),
+    )
+    if not save_result.get('success'):
+        return jsonify({'error': save_result.get('error', 'Prediction could not be saved')}), 500
+
+    prediction = save_result['prediction']
+    result['prediction_id'] = prediction.id
+    result['saved'] = True
+    return jsonify(result), 200
 
 
 analytics_service = AnalyticsService()
@@ -117,7 +239,33 @@ def get_model_info():
     service = get_prediction_service()
     if not service:
         return jsonify({'error': 'Model service unavailable'}), 503
-    return jsonify(service.get_model_info()), 200
+    model_info = service.get_model_info()
+    model_info['confidence_threshold'] = _resolve_confidence_threshold()
+    return jsonify(model_info), 200
+
+
+@api_bp.route('/crops', methods=['GET'])
+def get_crops():
+    """Return crops available in the deployed class metadata."""
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+    return jsonify({'crops': service.get_available_crops()}), 200
+
+
+@api_bp.route('/<crop>/model/info', methods=['GET'])
+def get_crop_model_info(crop):
+    """Return model metadata scoped to a specific crop."""
+    service = get_prediction_service(crop=crop)
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
+    model_info = service.get_model_info(crop=crop)
+    if crop and not model_info.get('crop'):
+        return jsonify({'error': f"Unsupported crop '{crop}'", 'available_crops': model_info.get('available_crops', [])}), 400
+
+    model_info['confidence_threshold'] = _resolve_confidence_threshold(crop)
+    return jsonify(model_info), 200
 
 @api_bp.route('/login', methods=['POST'])
 def login():
@@ -212,24 +360,15 @@ def register():
 @request_logger
 def predict_public():
     """Public prediction endpoint for the landing page."""
-    service = get_prediction_service()
-    if not service:
-        return jsonify({'error': 'Model service unavailable'}), 503
+    return _run_single_prediction(persist=False)
 
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-
-    result = service.predict_sync(file)
-    if not result.get('success'):
-        return jsonify({'error': result.get('error', 'Prediction failed')}), 500
-
-    result['saved'] = False
-    result['auth_required_for_history'] = True
-    return jsonify(result), 200
+@api_bp.route('/<crop>/predict/public', methods=['POST'])
+@rate_limiter
+@request_logger
+def predict_public_by_crop(crop):
+    """Public crop-specific prediction endpoint."""
+    return _run_single_prediction(crop=crop, persist=False)
 
 @api_bp.route('/predict', methods=['POST'])
 @auth_middleware
@@ -237,39 +376,81 @@ def predict_public():
 @request_logger
 def predict():
     """Authenticated single-image prediction with history persistence."""
-    service = get_prediction_service()
-    if not service:
-        return jsonify({'error': 'Model service unavailable'}), 503
+    return _run_single_prediction(user_id=g.user.id, persist=True)
 
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+@api_bp.route('/<crop>/predict', methods=['POST'])
+@auth_middleware
+@rate_limiter
+@request_logger
+def predict_by_crop(crop):
+    """Authenticated crop-specific single-image prediction endpoint."""
+    return _run_single_prediction(crop=crop, user_id=g.user.id, persist=True)
 
-    result = service.predict_sync(file, g.user.id)
-    if not result.get('success'):
-        return jsonify({'error': result.get('error', 'Prediction failed')}), 500
+@api_bp.route('/monitoring/class-health', methods=['GET'])
+@auth_middleware
+def get_class_health_monitoring():
+    """Return class-level confidence health and weak-class priorities."""
+    period = request.args.get('period', 'month')
+    threshold = request.args.get('threshold', type=float)
+    if threshold is None:
+        threshold = float(current_app.config.get('PREDICTION_CONFIDENCE_THRESHOLD', 0.60))
 
-    save_result = supabase_client.create_prediction(
+    data = analytics_service.get_class_monitoring(
         user_id=g.user.id,
-        image_name=file.filename,
-        prediction=result['prediction'],
-        confidence=result['confidence'],
-        probabilities=result['probabilities'],
-        processing_time=result['processing_time'],
-        ip_address=request.remote_addr,
-        user_agent=request.headers.get('User-Agent'),
+        period=period,
+        confidence_threshold=threshold,
     )
-    if not save_result.get('success'):
-        return jsonify({'error': save_result.get('error', 'Prediction could not be saved')}), 500
+    return jsonify(data), 200
 
-    prediction = save_result['prediction']
+@api_bp.route('/monitoring/data-collection-template', methods=['GET'])
+@auth_middleware
+def download_data_collection_template():
+    """Download a CSV template prioritizing weak classes for new data collection."""
+    period = request.args.get('period', 'month')
+    threshold = request.args.get('threshold', type=float)
+    if threshold is None:
+        threshold = float(current_app.config.get('PREDICTION_CONFIDENCE_THRESHOLD', 0.60))
 
-    result['prediction_id'] = prediction.id
-    result['saved'] = True
-    return jsonify(result), 200
+    monitoring = analytics_service.get_class_monitoring(
+        user_id=g.user.id,
+        period=period,
+        confidence_threshold=threshold,
+    )
+    rows = analytics_service.build_data_collection_template_rows(monitoring)
+
+    if not rows:
+        rows = [{
+            'priority_rank': 1,
+            'class_name': 'Example_Class',
+            'target_new_images': 200,
+            'min_capture_resolution': '1024x1024',
+            'lighting_condition': 'Natural light preferred',
+            'leaf_stage': 'young|mature|mixed',
+            'region_or_farm': '',
+            'capture_device': '',
+            'symptom_severity': 'mild|moderate|severe',
+            'expert_verified_label': 'yes|no',
+            'current_avg_confidence': 0.0,
+            'low_confidence_ratio': 0.0,
+            'confidence_threshold': threshold,
+            'notes': 'Populate with weak classes after predictions are available',
+        }]
+
+    csv_stream = StringIO()
+    writer = csv.DictWriter(csv_stream, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+
+    csv_bytes = BytesIO(csv_stream.getvalue().encode('utf-8'))
+    csv_bytes.seek(0)
+
+    return send_file(
+        csv_bytes,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='weak_class_data_collection_template.csv',
+    )
 
 @api_bp.route('/batch_predict', methods=['POST'])
 @auth_middleware
@@ -289,6 +470,37 @@ def batch_predict():
         return jsonify({'error': f'Maximum batch size is {current_app.config.get("MAX_BATCH_SIZE")}'}), 400
 
     results = service.batch_predict(files, g.user.id)
+    return jsonify({
+        'success': True,
+        'total': len(results),
+        'results': results
+    }), 200
+
+
+@api_bp.route('/<crop>/batch_predict', methods=['POST'])
+@auth_middleware
+@rate_limiter
+@request_logger
+def batch_predict_by_crop(crop):
+    """Authenticated crop-specific batch prediction endpoint."""
+    service = get_prediction_service()
+    if not service:
+        return jsonify({'error': 'Model service unavailable'}), 503
+
+    if 'files[]' not in request.files:
+        return jsonify({'error': 'No files provided'}), 400
+
+    files = request.files.getlist('files[]')
+    if len(files) > current_app.config.get('MAX_BATCH_SIZE', 10):
+        return jsonify({'error': f'Maximum batch size is {current_app.config.get("MAX_BATCH_SIZE")}'}), 400
+
+    results = service.batch_predict(files, g.user.id, crop=crop)
+    if any(not result.get('success') and result.get('available_crops') for result in results):
+        return jsonify({
+            'error': f"Unsupported crop '{crop}'",
+            'available_crops': service.get_available_crops(),
+        }), 400
+
     return jsonify({
         'success': True,
         'total': len(results),
@@ -533,7 +745,7 @@ def submit_feedback():
     feedback_item = result.get('feedback', {})
     admin_email = current_app.config.get('ADMIN_EMAIL')
     send_system_email(
-        subject='[MaizeGuard] New customer feedback received',
+        subject='[CropGuard] New customer feedback received',
         body=(
             f"Feedback ID: {feedback_item.get('id')}\n"
             f"Category: {feedback_item.get('category') or 'General'}\n"
@@ -597,9 +809,9 @@ def admin_feedback_reply(feedback_id):
     destination_email = feedback_item.get('email')
     if destination_email:
         send_system_email(
-            subject='[MaizeGuard Support] Response to your feedback',
+            subject='[CropGuard Support] Response to your feedback',
             body=(
-                'Thank you for contacting MaizeGuard AI support.\n\n'
+                'Thank you for contacting CropGuard AI support.\n\n'
                 f"Your message:\n{feedback_item.get('message', '')}\n\n"
                 'Support response:\n'
                 f"{reply_text}\n"

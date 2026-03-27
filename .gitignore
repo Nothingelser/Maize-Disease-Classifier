@@ -32,6 +32,9 @@ models/*.joblib
 data/uploads/*
 !data/uploads/.gitkeep
 data/raw/
+data/external/
+data/**/__pycache__/
+*.pyc
 
 # Runtime and reports
 instance/

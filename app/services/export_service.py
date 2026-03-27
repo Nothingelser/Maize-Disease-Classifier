@@ -81,7 +81,7 @@ class ExportService:
             spaceAfter=30,
         )
 
-        story.append(Paragraph("Maize Disease Classification Report", title_style))
+        story.append(Paragraph("Plant Disease Classification Report", title_style))
         story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
         story.append(Spacer(1, 20))
 
@@ -112,7 +112,7 @@ class ExportService:
         story.append(details_table)
         story.append(Spacer(1, 20))
 
-        probability_rows = [["Disease", "Probability"]]
+        probability_rows = [["Class", "Probability"]]
         for prob in prediction.get_probabilities():
             probability_rows.append(
                 [escape(str(prob.get("class", "Unknown"))), f"{float(prob.get('probability', 0)):.2%}"]
@@ -196,42 +196,38 @@ class ExportService:
 
     def get_recommendations(self, disease):
         """Get recommendations based on disease."""
-        recommendations = {
-            "Blight": [
-                "Apply fungicides containing azoxystrobin or pyraclostrobin",
-                "Remove and destroy infected leaves",
-                "Practice crop rotation for 2-3 years",
-                "Use resistant hybrid varieties",
-                "Ensure proper plant spacing",
-            ],
-            "Gray Leaf Spot": [
-                "Apply strobilurin fungicides at first sign",
-                "Maintain balanced soil fertility",
-                "Practice no-till farming",
-                "Rotate with soybeans or small grains",
-                "Use disease-resistant hybrids",
-            ],
-            "Healthy": [
-                "Continue regular field monitoring",
-                "Maintain proper nutrition and irrigation",
-                "Apply preventive fungicides if conditions favor disease",
-                "Keep detailed field records",
-                "Use certified disease-free seeds",
-            ],
-            "Maize Rust": [
-                "Plant resistant varieties",
-                "Apply fungicides if rust covers >10% of leaf area",
-                "Avoid excessive nitrogen fertilization",
-                "Scout fields weekly",
-                "Practice crop rotation",
-            ],
-        }
+        normalized = str(disease or "").lower()
 
-        return recommendations.get(
-            disease,
-            [
-                "Consult local agricultural extension officer",
-                "Monitor field regularly",
-                "Maintain good agricultural practices",
-            ],
-        )
+        if "healthy" in normalized:
+            return [
+                "No dominant disease signal detected; continue routine scouting",
+                "Keep periodic reference images to track field changes",
+                "Maintain balanced irrigation and nutrition practices",
+            ]
+
+        if "rust" in normalized:
+            return [
+                "Inspect both leaf surfaces to verify rust pressure",
+                "Track neighboring plants to evaluate spread dynamics",
+                "Apply crop-specific integrated rust management guidance",
+            ]
+
+        if "blight" in normalized:
+            return [
+                "Review lesion progression across nearby plants",
+                "Adjust canopy and moisture conditions where feasible",
+                "Follow local extension guidance before intervention",
+            ]
+
+        if any(token in normalized for token in ("spot", "mold", "lesion")):
+            return [
+                "Increase monitoring frequency on affected blocks",
+                "Reduce prolonged leaf wetness risk factors",
+                "Validate with additional images before treatment decisions",
+            ]
+
+        return [
+            "Consult local agricultural extension officer",
+            "Monitor field regularly",
+            "Maintain good agricultural practices",
+        ]

@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports | MaizeGuard AI</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Reports | CropGuard AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -16,7 +16,7 @@
                 <a class="brand" href="/">
                     <div class="brand-mark"><i class="fas fa-leaf"></i></div>
                     <div class="brand-copy">
-                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-title">CropGuard AI</span>
                         <span class="brand-subtitle">Report center</span>
                     </div>
                 </a>
@@ -89,10 +89,6 @@
                         <label for="diseaseFilter">Disease type</label>
                         <select class="form-select" id="diseaseFilter">
                             <option value="all">All diseases</option>
-                            <option value="Blight">Northern Leaf Blight</option>
-                            <option value="Gray Leaf Spot">Gray Leaf Spot</option>
-                            <option value="Healthy">Healthy</option>
-                            <option value="Maize Rust">Maize Rust</option>
                         </select>
                     </div>
                     <div class="field">
@@ -183,7 +179,7 @@
 
         <footer class="site-footer">
             <div class="site-footer-inner">
-                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-copy">&copy; 2026 CropGuard AI. All rights reserved.</div>
                 <div class="site-footer-links">
                     <a href="/about">About</a>
                     <a href="/privacy">Privacy</a>
@@ -238,7 +234,41 @@
                 this.checkAuth();
                 this.initModal();
                 this.setupEventListeners();
+                this.loadDiseaseOptions();
                 this.loadPredictions();
+            }
+
+            formatLabel(label) {
+                return String(label || '').replace(/___/g, ' / ').replace(/_/g, ' ').trim();
+            }
+
+            async loadDiseaseOptions() {
+                try {
+                    const response = await fetch('/api/model/info');
+                    if (!response.ok) return;
+
+                    const modelInfo = await response.json();
+                    const rawClasses = Array.isArray(modelInfo.classes) ? modelInfo.classes : [];
+                    const displayClasses = Array.isArray(modelInfo.display_classes)
+                        ? modelInfo.display_classes
+                        : rawClasses.map((value) => this.formatLabel(value));
+
+                    const diseaseFilter = document.getElementById('diseaseFilter');
+                    if (!diseaseFilter) return;
+
+                    while (diseaseFilter.options.length > 1) {
+                        diseaseFilter.remove(1);
+                    }
+
+                    rawClasses.forEach((classValue, index) => {
+                        const option = document.createElement('option');
+                        option.value = classValue;
+                        option.textContent = displayClasses[index] || this.formatLabel(classValue);
+                        diseaseFilter.appendChild(option);
+                    });
+                } catch (error) {
+                    console.warn('Could not load class options for report filters', error);
+                }
             }
 
             initModal() {
@@ -343,13 +373,14 @@
 
                 predictions.forEach((pred) => {
                     const row = tbody.insertRow();
+                    const displayPrediction = this.formatLabel(pred.prediction);
                     const badgeClass = this.getBadgeClass(pred.prediction);
 
                     row.innerHTML = `
                         <td><input type="checkbox" class="prediction-checkbox" data-id="${pred.id}"></td>
                         <td>#${pred.id}</td>
                         <td>${this.truncate(pred.image_name, 30)}</td>
-                        <td><span class="badge-large ${badgeClass}">${pred.prediction}</span></td>
+                        <td><span class="badge-large ${badgeClass}">${displayPrediction}</span></td>
                         <td>${(pred.confidence * 100).toFixed(1)}%</td>
                         <td>${new Date(pred.created_at).toLocaleDateString()}</td>
                         <td>
@@ -450,7 +481,7 @@
                         return `
                             <div class="probability-item">
                                 <div class="probability-label">
-                                    <span><strong>${prob.class}</strong></span>
+                                    <span><strong>${prob.display_class || this.formatLabel(prob.class)}</strong></span>
                                     <span>${percentage}%</span>
                                 </div>
                                 <div class="progress">
@@ -469,7 +500,7 @@
                                     <i class="fas fa-microscope"></i>
                                     Prediction details
                                 </span>
-                                <span class="badge-large ${this.getBadgeClass(prediction.prediction)}">${prediction.prediction}</span>
+                                <span class="badge-large ${this.getBadgeClass(prediction.prediction)}">${this.formatLabel(prediction.prediction)}</span>
                             </div>
                             <div class="prediction-modal-score">
                                 <div>
@@ -633,23 +664,31 @@
             }
 
             getBadgeClass(prediction) {
-                const classes = {
-                    'Blight': 'badge-blight',
-                    'Gray Leaf Spot': 'badge-gray-leaf-spot',
-                    'Healthy': 'badge-healthy',
-                    'Maize Rust': 'badge-maize-rust'
-                };
-                return classes[prediction] || 'badge-healthy';
+                const normalized = String(prediction || '').toLowerCase();
+                if (normalized.includes('healthy')) return 'badge-healthy';
+                if (normalized.includes('blight')) return 'badge-blight';
+                if (normalized.includes('rust')) return 'badge-maize-rust';
+                if (normalized.includes('spot') || normalized.includes('mold') || normalized.includes('lesion')) {
+                    return 'badge-gray-leaf-spot';
+                }
+                return 'badge-generic';
             }
 
             getRecommendation(disease) {
-                const recommendations = {
-                    'Blight': 'Apply fungicides containing azoxystrobin or pyraclostrobin. Remove infected leaves and practice crop rotation.',
-                    'Gray Leaf Spot': 'Apply strobilurin fungicides at first sign. Maintain balanced soil fertility and improve field sanitation.',
-                    'Healthy': 'Continue current agronomic practice and keep monitoring the field for early-stage disease indicators.',
-                    'Maize Rust': 'Use resistant varieties where possible and treat severe outbreaks before spread accelerates.'
-                };
-                return recommendations[disease] || 'Consult a local agricultural expert for treatment options.';
+                const normalized = String(disease || '').toLowerCase();
+                if (normalized.includes('healthy')) {
+                    return 'No dominant disease signal detected. Continue routine scouting and keep periodic photo logs.';
+                }
+                if (normalized.includes('rust')) {
+                    return 'Inspect spread pattern across nearby plants and apply crop-specific integrated rust management guidance.';
+                }
+                if (normalized.includes('blight')) {
+                    return 'Verify lesion progression and follow local extension recommendations for blight management and sanitation.';
+                }
+                if (normalized.includes('spot') || normalized.includes('mold') || normalized.includes('lesion')) {
+                    return 'Increase monitoring frequency and reduce leaf-wetness risk factors while validating with additional images.';
+                }
+                return 'Consult a local agricultural expert for crop-specific treatment options.';
             }
 
             truncate(str, length) {
@@ -680,3 +719,4 @@
     </script>
 </body>
 </html>
+

@@ -1,15 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MaizeGuard AI | Detection Workspace</title>
-    <meta name="description" content="Professional AI-powered maize leaf disease classification workspace for fast screening and reporting.">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>CropGuard AI | {% if crop_title %}{{ crop_title }} {% endif %}Detection Workspace</title>
+    <meta name="description" content="Professional AI-powered crop leaf disease classification workspace for fast screening and reporting.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/professional.css') }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 </head>
-<body>
+<body data-active-crop="{{ active_crop or '' }}">
     <div class="app-shell">
         <div class="loading-overlay" id="loadingOverlay">
             <div class="loading-spinner">
@@ -25,13 +25,14 @@
                         <i class="fas fa-leaf"></i>
                     </div>
                     <div class="brand-copy">
-                        <span class="brand-title">MaizeGuard AI</span>
+                        <span class="brand-title">CropGuard AI</span>
                         <span class="brand-subtitle">Field diagnostics workspace</span>
                     </div>
                 </a>
 
                 <nav class="header-nav" aria-label="Primary">
-                    <a class="header-link active" href="/">Detection</a>
+                    <a class="header-link active" href="{% if active_crop %}/apps/{{ active_crop }}{% else %}/workspace{% endif %}">Detection</a>
+                    <a class="header-link" href="/">Apps</a>
                     <a class="header-link" href="/analytics">Analytics</a>
                     <a class="header-link" href="/reports">Reports</a>
                     <a class="header-link" href="/dashboard" data-admin-link style="display: none;">Admin</a>
@@ -66,10 +67,22 @@
                         <i class="fas fa-seedling"></i>
                         Production classifier
                     </div>
-                    <h1 class="landing-title">Rapid maize leaf diagnosis for real field work.</h1>
+                    <h1 class="landing-title">Rapid {% if crop_title %}{{ crop_title }} {% endif %}leaf diagnosis for real field work.</h1>
                     <p class="landing-subtitle">
-                        Screen maize leaf images, compare model confidence across disease classes, and turn every prediction into a clean operational record for follow-up action.
+                        Screen {% if crop_title %}{{ crop_title }} {% else %}crop{% endif %} leaf images, compare model confidence across disease classes, and turn every prediction into a clean operational record for follow-up action.
                     </p>
+
+                    <div class="info-item" style="margin-top: 16px; max-width: 360px;">
+                        <span>Active crop application</span>
+                        <strong>
+                            <select id="cropAppSelect" aria-label="Select crop application" style="width: 100%; margin-top: 8px;">
+                                <option value="">All crops</option>
+                                {% for crop in crop_apps or [] %}
+                                <option value="{{ crop.key }}" {% if active_crop == crop.key %}selected{% endif %}>{{ crop.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </strong>
+                    </div>
 
                     <div class="hero-actions">
                         <button class="btn btn-primary" id="selectFileBtn" type="button">
@@ -85,15 +98,15 @@
                     <div class="hero-stats landing-kpis">
                         <div class="hero-stat">
                             <div class="hero-stat-label">Model accuracy</div>
-                            <div class="hero-stat-value">91.7%</div>
+                            <div class="hero-stat-value" id="modelAccuracy">91.7%</div>
                         </div>
                         <div class="hero-stat">
                             <div class="hero-stat-label">Feature space</div>
-                            <div class="hero-stat-value">43</div>
+                            <div class="hero-stat-value" id="featureSpace">43</div>
                         </div>
                         <div class="hero-stat">
                             <div class="hero-stat-label">Disease classes</div>
-                            <div class="hero-stat-value">4</div>
+                            <div class="hero-stat-value" id="diseaseClassCount">4</div>
                         </div>
                     </div>
                 </div>
@@ -150,8 +163,8 @@
                             <div class="upload-icon">
                                 <i class="fas fa-cloud-arrow-up"></i>
                             </div>
-                            <h3>Drag and drop a maize leaf photo</h3>
-                            <p class="muted">The classifier performs best when the leaf fills most of the frame and lesion patterns are clearly visible.</p>
+                            <h3>Drag and drop a plant leaf photo</h3>
+                            <p class="muted">The classifier performs best when the leaf fills most of the frame and visible disease patterns are clearly focused.</p>
                             <div class="hero-actions upload-actions">
                                 <button class="btn btn-primary" id="browseBtn" type="button">
                                     <i class="fas fa-folder-open"></i>
@@ -199,6 +212,9 @@
                                     <div class="progress">
                                         <div class="progress-bar" id="confidenceBar" style="width: 0%;"></div>
                                     </div>
+                                </div>
+                                <div class="confidence-status" id="confidenceStatus" aria-live="polite">
+                                    Confidence status will appear after analysis.
                                 </div>
                                 <div class="info-item" style="margin-top: 16px;">
                                     <span>Processed</span>
@@ -291,7 +307,16 @@
                                     <div class="metric-icon"><i class="fas fa-diagram-project"></i></div>
                                     <div>
                                         <div class="metric-title">Classes</div>
-                                        <div class="metric-value">4</div>
+                                        <div class="metric-value" id="classesCount">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-header">
+                                    <div class="metric-icon"><i class="fas fa-sliders"></i></div>
+                                    <div>
+                                        <div class="metric-title">Conf. threshold</div>
+                                        <div class="metric-value" id="confidenceThresholdDisplay">60%</div>
                                     </div>
                                 </div>
                             </div>
@@ -303,30 +328,15 @@
             <section class="premium-card disease-library">
                 <div class="section-heading">
                     <div>
-                        <h2>Disease reference</h2>
-                        <div class="section-copy">Quick visual summaries of the disease classes the model is trained to separate.</div>
+                        <h2>Class reference</h2>
+                        <div class="section-copy">Class names are loaded from the active model metadata.</div>
                     </div>
                 </div>
-                <div class="disease-library-grid">
+                <div class="disease-library-grid" id="diseaseLibraryGrid">
                     <div class="disease-card">
-                        <div class="icon-wrap"><i class="fas fa-bacteria"></i></div>
-                        <h3>Northern Leaf Blight</h3>
-                        <p class="muted">Long grey-green lesions that extend along the leaf veins and enlarge quickly in favorable conditions.</p>
-                    </div>
-                    <div class="disease-card">
-                        <div class="icon-wrap"><i class="fas fa-grip-lines"></i></div>
-                        <h3>Gray Leaf Spot</h3>
-                        <p class="muted">Angular brown lesions between veins, often becoming more obvious under humid field conditions.</p>
-                    </div>
-                    <div class="disease-card">
-                        <div class="icon-wrap"><i class="fas fa-circle-check"></i></div>
-                        <h3>Healthy</h3>
-                        <p class="muted">Uniform green tissue with no visible pustules, necrotic streaking, or lesion expansion.</p>
-                    </div>
-                    <div class="disease-card">
-                        <div class="icon-wrap"><i class="fas fa-burst"></i></div>
-                        <h3>Maize Rust</h3>
-                        <p class="muted">Reddish-brown pustules scattered across the leaf surface and often concentrated on active lesions.</p>
+                        <div class="icon-wrap"><i class="fas fa-seedling"></i></div>
+                        <h3>Loading classes...</h3>
+                        <p class="muted">The class list will populate from the deployed model.</p>
                     </div>
                 </div>
             </section>
@@ -334,7 +344,7 @@
 
         <footer class="site-footer">
             <div class="site-footer-inner">
-                <div class="site-footer-copy">&copy; 2026 MaizeGuard AI. All rights reserved.</div>
+                <div class="site-footer-copy">&copy; 2026 CropGuard AI. All rights reserved.</div>
                 <div class="site-footer-links">
                     <a href="/about">About</a>
                     <a href="/privacy">Privacy</a>
@@ -351,3 +361,4 @@
     <script src="{{ url_for('static', filename='js/core.js') }}"></script>
 </body>
 </html>
+
