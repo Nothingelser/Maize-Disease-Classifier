@@ -1,5 +1,5 @@
 """
-Source package for Maize Disease Classifier
+Source package for Multi-Crop Disease Classifier
 """
 from app import create_app
 from src.data_preprocessing import LeafPreprocessor, MaizeLeafPreprocessor

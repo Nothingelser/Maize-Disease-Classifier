@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Professional entry point for the Maize Disease Classifier.
+Professional entry point for the Multi-Crop Disease Classifier.
 Loads configuration and starts the Flask application.
 """
 import logging
@@ -51,7 +51,7 @@ try:
 
     if __name__ == '__main__':
         port = int(os.environ.get('PORT', 5000))
-        logger.info("Maize Disease Classifier started in %s mode on port %s", env, port)
+        logger.info("Multi-Crop Disease Classifier started in %s mode on port %s", env, port)
         app.run(
             host='0.0.0.0',
             port=port,

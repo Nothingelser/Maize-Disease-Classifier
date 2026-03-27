@@ -1,5 +1,5 @@
 """
-Configuration package for Maize Disease Classifier
+Configuration package for Multi-Crop Disease Classifier
 Provides environment-specific configuration settings
 """
 
