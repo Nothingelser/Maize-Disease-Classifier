@@ -1,6 +1,4 @@
-# ============================================
 # Production Requirements (Vercel/Lambda compatible)
-# ============================================
 
 # Core Flask Framework
 Flask
